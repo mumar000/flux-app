@@ -44,13 +44,18 @@ export function useAuth() {
 
     if (error) throw error;
 
-    // Create profile
+    // Create profile (with error handling - profile creation is optional)
     if (data.user) {
-      await supabase.from('profiles').insert({
+      const { error: profileError } = await supabase.from('profiles').insert({
         id: data.user.id,
         full_name: fullName,
         onboarding_completed: false,
       });
+
+      if (profileError) {
+        console.warn('Profile creation failed:', profileError.message);
+        // Don't throw - user is still created, profile can be created later
+      }
     }
 
     return data;

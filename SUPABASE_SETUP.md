@@ -69,10 +69,12 @@ CREATE TABLE categories (
 -- Expenses table
 CREATE TABLE expenses (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
-  amount DECIMAL(10, 2) NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  amount DECIMAL(12, 2) NOT NULL,
   description TEXT,
+  category TEXT NOT NULL DEFAULT 'Other',
+  bank_account TEXT NOT NULL DEFAULT 'Cash',
+  raw_input TEXT,
   date DATE NOT NULL DEFAULT CURRENT_DATE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
