@@ -40,10 +40,13 @@ export function useAuth() {
   }, []);
 
   const signInWithGoogle = async () => {
+    // Get the app URL from environment variable (set in Vercel for production)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // Don't specify redirectTo - let Supabase use the Site URL configured in dashboard
+        redirectTo: `${appUrl}/auth/callback`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
