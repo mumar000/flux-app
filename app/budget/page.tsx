@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SpendingPieChart } from "@/components/mobile/SpendingPieChart";
 import { QuickExpenseInput } from "@/components/mobile/QuickExpenseInput";
 import { useExpenses } from "@/hooks/useExpenses";
+import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   formatPKR,
@@ -13,6 +15,8 @@ import {
 } from "@/utils/expenseParser";
 
 export default function BudgetPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const {
     expenses,
     addExpense,
@@ -24,6 +28,13 @@ export default function BudgetPage() {
     refresh,
   } = useExpenses();
   const [showAllTransactions, setShowAllTransactions] = useState(false);
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/auth");
+    }
+  }, [user, authLoading, router]);
 
   const monthlyStats = getMonthlyStats();
 
@@ -59,7 +70,8 @@ export default function BudgetPage() {
     await addExpense(expense);
   };
 
-  if (isLoading) {
+  // Show loading while auth or expenses are loading
+  if (isLoading || authLoading) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -74,6 +86,11 @@ export default function BudgetPage() {
         </motion.div>
       </div>
     );
+  }
+
+  // Don't render if not authenticated
+  if (!user) {
+    return null;
   }
 
   return (

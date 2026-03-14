@@ -13,11 +13,19 @@ export function useAuth() {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (error) {
+          console.error('Error getting session:', error);
+        }
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to get session:', err);
+        setLoading(false);
+      });
 
     // Listen for auth changes
     const {
@@ -31,43 +39,22 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+  const signInWithGoogle = async () => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
       options: {
-        data: {
-          full_name: fullName,
+        redirectTo: `${window.location.origin}/budget`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
         },
       },
     });
 
-    if (error) throw error;
-
-    // Create profile (with error handling - profile creation is optional)
-    if (data.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        full_name: fullName,
-        onboarding_completed: false,
-      });
-
-      if (profileError) {
-        console.warn('Profile creation failed:', profileError.message);
-        // Don't throw - user is still created, profile can be created later
-      }
+    if (error) {
+      console.error('Google sign-in error:', error);
+      throw error;
     }
-
-    return data;
-  };
-
-  const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) throw error;
     return data;
   };
 
@@ -77,20 +64,11 @@ export function useAuth() {
     router.push('/auth');
   };
 
-  const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
-    });
-    if (error) throw error;
-  };
-
   return {
     user,
     session,
     loading,
-    signUp,
-    signIn,
+    signInWithGoogle,
     signOut,
-    resetPassword,
   };
 }

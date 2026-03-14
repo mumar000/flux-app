@@ -26,7 +26,7 @@ export interface MonthlyStats {
 const STORAGE_KEY = "rizqly_expenses";
 
 export function useExpenses() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,10 +49,18 @@ export function useExpenses() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase fetch error:", error);
+        throw error;
+      }
       return data || [];
-    } catch (err) {
+    } catch (err: any) {
       console.error("Supabase fetch error:", err);
+      console.error("Error details:", {
+        message: err?.message,
+        details: err?.details,
+        hint: err?.hint,
+      });
       throw err;
     }
   }, [user]);
@@ -119,6 +127,12 @@ export function useExpenses() {
       category: string;
       rawInput: string;
     }) => {
+      // Wait for auth to finish loading before checking user
+      if (authLoading) {
+        setError("Please wait, loading your session...");
+        return null;
+      }
+
       if (!user) {
         setError("You must be logged in to add expenses");
         return null;
@@ -155,17 +169,37 @@ export function useExpenses() {
             .select()
             .single();
 
-          if (error) throw error;
+          if (error) {
+            console.error("Supabase insert error:", error);
+            throw error;
+          }
 
           if (data) {
             setExpenses((prev) =>
               prev.map((e) => (e.id === newExpense.id ? data : e)),
             );
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error("Failed to save to Supabase:", err);
+          const errorMessage = err?.message || "Unknown error";
+          const errorDetails = err?.details || "";
+          const errorHint = err?.hint || "";
+
+          console.error("Error details:", { errorMessage, errorDetails, errorHint });
+
+          // Save locally as fallback
           saveToLocalStorage(updatedExpenses);
-          setError("Saved locally - will sync when online");
+
+          // Show user-friendly error message
+          if (errorMessage.includes("relation") || errorMessage.includes("does not exist")) {
+            setError("Database table not found. Please run the setup SQL in Supabase.");
+          } else if (errorMessage.includes("row-level security") || errorMessage.includes("policy")) {
+            setError("Permission denied. Please check database security policies.");
+          } else if (errorMessage.includes("Failed to fetch") || errorMessage.includes("network")) {
+            setError("Network error. Saved locally - will sync when online.");
+          } else {
+            setError(`Error: ${errorMessage}. Saved locally.`);
+          }
         }
       } else {
         saveToLocalStorage(updatedExpenses);
@@ -173,7 +207,7 @@ export function useExpenses() {
 
       return newExpense;
     },
-    [expenses, useSupabase, user],
+    [expenses, useSupabase, user, authLoading],
   );
 
   // Delete expense

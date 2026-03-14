@@ -21,7 +21,7 @@ interface Bank {
 }
 
 export default function SettingsPage() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -30,6 +30,13 @@ export default function SettingsPage() {
   const [newCatName, setNewCatName] = useState("");
   const [newCatEmoji, setNewCatEmoji] = useState("📦");
   const [newBankName, setNewBankName] = useState("");
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/auth");
+    }
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     if (!user) return;
@@ -140,6 +147,15 @@ export default function SettingsPage() {
       alert("Error deleting bank");
     }
   };
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0F0F11]">
+        <div className="w-12 h-12 border-4 border-[#CCFF00]/30 border-t-[#CCFF00] rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!user) return null;
 
