@@ -32,5 +32,8 @@
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "mongodb": "^7.1.1"
   }
 }

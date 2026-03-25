@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   motion,
   AnimatePresence,
@@ -20,41 +20,69 @@ interface QuickExpenseInputProps {
   }) => void;
 }
 
-// Bank options
-const BANKS = [
+// We will load these from the API instead of hardcoding
+const FALLBACK_BANKS = [
   { id: "meezan", name: "Meezan Bank", emoji: "🏦", color: "#00A651" },
   { id: "hbl", name: "HBL", emoji: "💚", color: "#006341" },
-  { id: "jazzcash", name: "JazzCash", emoji: "📱", color: "#ED1C24" },
-  { id: "easypaisa", name: "Easypaisa", emoji: "💛", color: "#00A54F" },
-  { id: "sadapay", name: "SadaPay", emoji: "💜", color: "#6B21A8" },
-  { id: "nayapay", name: "NayaPay", emoji: "🔵", color: "#3B82F6" },
   { id: "cash", name: "Cash", emoji: "💵", color: "#22C55E" },
 ];
 
-// Category options
-const CATEGORIES = [
+const FALLBACK_CATEGORIES = [
   { id: "Food", emoji: "🍔", color: "#FF6B6B" },
   { id: "Transport", emoji: "🚕", color: "#4ECDC4" },
-  { id: "Shopping", emoji: "🛍️", color: "#FFE66D" },
-  { id: "Bills", emoji: "📄", color: "#95A5A6" },
-  { id: "Entertainment", emoji: "🎬", color: "#9B59B6" },
-  { id: "Health", emoji: "💊", color: "#2ECC71" },
-  { id: "Education", emoji: "📚", color: "#3498DB" },
-  { id: "Groceries", emoji: "🛒", color: "#E67E22" },
   { id: "Other", emoji: "📦", color: "#BDC3C7" },
 ];
 
 export function QuickExpenseInput({ onExpenseAdded }: QuickExpenseInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState(CATEGORIES[0]);
-  const [bank, setBank] = useState(BANKS[0]);
+  
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
+  const [banks, setBanks] = useState(FALLBACK_BANKS);
+  
+  const [category, setCategory] = useState(FALLBACK_CATEGORIES[0]);
+  const [bank, setBank] = useState(FALLBACK_BANKS[0]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [swipeProgress, setSwipeProgress] = useState(0);
 
   // Swipe tracking
   const swipeY = useMotionValue(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch dynamic categories and banks on mount
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.length > 0) {
+          const mapped = data.map((d: any) => ({
+            id: d.name,
+            name: d.name,
+            emoji: d.emoji || "📦",
+            color: d.color || "#BDC3C7",
+          }));
+          setCategories(mapped);
+          setCategory(mapped[0]);
+        }
+      })
+      .catch((err) => console.error(err));
+
+    fetch("/api/banks")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.length > 0) {
+          const mapped = data.map((d: any) => ({
+            id: d.name.toLowerCase().replace(/\s+/g, ""),
+            name: d.name,
+            emoji: d.icon_url || "🏦",
+            color: d.color || "#22C55E",
+          }));
+          setBanks(mapped);
+          setBank(mapped[0]);
+        }
+      })
+      .catch((err) => console.error(err));
+  }, []);
 
   // Reset
   const resetFields = () => {
@@ -260,7 +288,7 @@ export function QuickExpenseInput({ onExpenseAdded }: QuickExpenseInputProps) {
                     Category
                   </div>
                   <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                    {CATEGORIES.map((cat) => {
+                    {categories.map((cat) => {
                       const isSelected = category.id === cat.id;
                       return (
                         <motion.button
@@ -296,7 +324,7 @@ export function QuickExpenseInput({ onExpenseAdded }: QuickExpenseInputProps) {
                     Account
                   </div>
                   <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                    {BANKS.map((b) => {
+                    {banks.map((b) => {
                       const isSelected = bank.id === b.id;
                       return (
                         <motion.button

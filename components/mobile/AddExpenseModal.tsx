@@ -31,11 +31,32 @@ interface AddExpenseModalProps {
 
 export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
   const [amount, setAmount] = useState("");
+  const [categories, setCategories] = useState<Category[]>(defaultCategories);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null,
   );
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch dynamic categories
+  useEffect(() => {
+    if (open) {
+      fetch("/api/categories")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.length > 0) {
+            const mapped = data.map((d: any) => ({
+              id: d.id || d.name,
+              name: d.name,
+              emoji: d.emoji || "📦",
+              color: d.color || "#BDC3C7",
+            }));
+            setCategories(mapped);
+          }
+        })
+        .catch((err) => console.error(err));
+    }
+  }, [open]);
 
   // Shake animation state
   const [shake, setShake] = useState(false);
@@ -134,7 +155,7 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
               {/* 3. Horizontal Scroll Categories (The "Vibe" Picker) */}
               <div className="mb-6">
                 <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x">
-                  {defaultCategories.map((cat) => {
+                  {categories.map((cat) => {
                     const isSelected = selectedCategory?.id === cat.id;
                     return (
                       <motion.button

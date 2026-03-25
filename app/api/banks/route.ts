@@ -13,7 +13,12 @@ export async function GET(req: Request) {
 
     await dbConnect();
     
-    const banks = await Bank.find({ userId: session.user.id });
+    const banks = await Bank.find({
+      $or: [
+        { userId: session.user.id },
+        { is_default: true }
+      ]
+    });
     
     const formattedBanks = banks.map(b => {
         const doc = b.toObject();
