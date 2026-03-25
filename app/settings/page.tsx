@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 interface Category {
@@ -46,28 +45,18 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      // Fetch categories (user's + default)
-      const { data: catData, error: catError } = await supabase
-        .from("categories")
-        .select("*")
-        .or(`user_id.eq.${user?.id},is_default.eq.true`);
-
-      if (catError) throw catError;
-      setCategories(catData || []);
+      // Fetch categories
+      const catRes = await fetch("/api/categories");
+      if (catRes.ok) {
+        const catData = await catRes.json();
+        setCategories(catData || []);
+      }
 
       // Fetch banks
-      const { data: bankData, error: bankError } = await supabase
-        .from("banks")
-        .select("*")
-        .eq("user_id", user?.id);
-
-      // If banks table doesn't exist yet, it might error. We'll handle it.
-      if (bankError) {
-        console.warn("Banks table might not exist yet, using defaults");
-        // Safe to ignore if table doesn't exist, we'll just show empty
-        setBanks([]);
-      } else {
-        setBanks(bankData || []);
+      const bankRes = await fetch("/api/banks");
+      if (bankRes.ok) {
+         const bankData = await bankRes.json();
+         setBanks(bankData || []);
       }
     } catch (err) {
       console.error("Error fetching settings:", err);
@@ -79,19 +68,18 @@ export default function SettingsPage() {
   const addCategory = async () => {
     if (!newCatName || !user) return;
     try {
-      const { data, error } = await supabase
-        .from("categories")
-        .insert({
-          user_id: user.id,
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           name: newCatName,
           emoji: newCatEmoji,
           color: "#" + Math.floor(Math.random() * 16777215).toString(16),
-          is_default: false,
-        })
-        .select()
-        .single();
+        }),
+      });
 
-      if (error) throw error;
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
       setCategories([...categories, data]);
       setNewCatName("");
     } catch (err) {
@@ -102,9 +90,11 @@ export default function SettingsPage() {
   const deleteCategory = async (id: string, isDefault: boolean) => {
     if (isDefault) return;
     try {
-      const { error } = await supabase.from("categories").delete().eq("id", id);
+      const res = await fetch(`/api/categories?id=${id}`, {
+        method: "DELETE",
+      });
 
-      if (error) throw error;
+      if (!res.ok) throw new Error("Failed");
       setCategories(categories.filter((c) => c.id !== id));
     } catch (err) {
       alert("Error deleting category");
@@ -114,34 +104,30 @@ export default function SettingsPage() {
   const addBank = async () => {
     if (!newBankName || !user) return;
     try {
-      const { data, error } = await supabase
-        .from("banks")
-        .insert({
-          user_id: user.id,
+      const res = await fetch("/api/banks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           name: newBankName,
-        })
-        .select()
-        .single();
+        }),
+      });
 
-      if (error) {
-        // Create table if it doesn't exist is not possible here
-        // But we can inform the user
-        throw error;
-      }
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
       setBanks([...banks, data]);
       setNewBankName("");
     } catch (err) {
-      alert(
-        "Error adding bank. Make sure the 'banks' table exists in Supabase.",
-      );
+      alert("Error adding bank.");
     }
   };
 
   const deleteBank = async (id: string) => {
     try {
-      const { error } = await supabase.from("banks").delete().eq("id", id);
+      const res = await fetch(`/api/banks?id=${id}`, {
+        method: "DELETE",
+      });
 
-      if (error) throw error;
+      if (!res.ok) throw new Error("Failed");
       setBanks(banks.filter((b) => b.id !== id));
     } catch (err) {
       alert("Error deleting bank");
@@ -334,7 +320,7 @@ export default function SettingsPage() {
           </div>
           <div className="h-px bg-white/5 my-4" />
           <p className="text-white/40 text-[10px] leading-relaxed">
-            Your data is synced with Supabase. You can access your budget from
+            Your data is synced with the cloud. You can access your budget from
             any device.
           </p>
         </section>

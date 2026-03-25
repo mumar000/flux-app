@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Rizqly 💸 - Personal Finance for Gen Z
 
-## Getting Started
+The simplest, cleanest way to track your expenses. Rizqly is a modern personal finance app designed with an intuitive, emoji-first interface that makes budgeting fun and addictive.
 
-First, run the development server:
+## 🚀 Tech Stack
+
+*   **Frontend**: Next.js 14 (App Router), React, Tailwind CSS, Framer Motion
+*   **Backend**: Next.js API Routes (Serverless)
+*   **Database**: MongoDB (via Mongoose)
+*   **Authentication**: NextAuth.js (Google OAuth)
+*   **Styling & UI**: Tailwind CSS, Geist Typography
+
+## 🛠 Setup & Installation
+
+Follow these steps to run Rizqly locally:
+
+### 1. Clone the repository
+
+```bash
+git clone <repository-url>
+cd rizqly-app
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Environment Variables
+
+Create a `.env.local` file in the root of your project:
+
+```env
+# MongoDB Connection String (from MongoDB Atlas)
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/rizqly?retryWrites=true&w=majority
+
+# NextAuth Configuration
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=generate_a_random_secret_here
+
+# Google OAuth Credentials (for NextAuth)
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+```
+
+### 4. Run the development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🧠 Database Schema
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Rizqly uses MongoDB with the following collections (mapped via Mongoose):
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+*   `users`: Managed by NextAuth.js
+*   `profiles`: User settings, onboarding status, push notifications
+*   `expenses`: Granular tracking of user expenses by amount, category, and bank
+*   `categories`: Default and custom expense categorization (with emojis and colors)
+*   `banks`: Custom bank lists available to users
+*   `goals`, `budgets`: Modules for setting overarching financial targets

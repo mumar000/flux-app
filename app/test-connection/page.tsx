@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function TestConnectionPage() {
@@ -20,19 +19,7 @@ export default function TestConnectionPage() {
     setTestResults([]);
     setTesting(true);
 
-    // Test 1: Environment Variables
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (url && key) {
-      addResult("Environment Variables", true, "✓ Supabase URL and Key are configured", { url });
-    } else {
-      addResult("Environment Variables", false, "✗ Missing Supabase credentials", { url, hasKey: !!key });
-      setTesting(false);
-      return;
-    }
-
-    // Test 2: Authentication Status
+    // Test 1: Authentication Status
     if (authLoading) {
       addResult("Authentication", false, "⏳ Still loading...", null);
     } else if (user) {
@@ -41,69 +28,53 @@ export default function TestConnectionPage() {
       addResult("Authentication", false, "✗ Not logged in", null);
     }
 
-    // Test 3: Connection Test
+    // Test 2: Database Connection
     try {
-      const { data, error } = await supabase.from("expenses").select("count", { count: "exact", head: true });
+      const res = await fetch("/api/test-connection");
+      const data = await res.json();
 
-      if (error) {
-        addResult("Database Connection", false, `✗ ${error.message}`, error);
+      if (!res.ok || !data.success) {
+        addResult("Database Connection", false, `✗ ${data.error || 'Connection failed'}`, data);
       } else {
-        addResult("Database Connection", true, "✓ Successfully connected to database", data);
+        addResult("Database Connection", true, "✓ Successfully connected to MongoDB", data);
+        addResult("Expenses Collection", true, `✓ Collection exists (${data.expenseCount || 0} documents)`, data);
       }
     } catch (err: any) {
       addResult("Database Connection", false, `✗ Connection failed: ${err.message}`, err);
     }
 
-    // Test 4: Check if expenses table exists
-    try {
-      const { data, error } = await supabase
-        .from("expenses")
-        .select("*")
-        .limit(1);
-
-      if (error) {
-        if (error.message.includes("relation") || error.message.includes("does not exist")) {
-          addResult("Expenses Table", false, "✗ Table doesn't exist. Run the SQL setup!", error);
-        } else if (error.message.includes("policy") || error.message.includes("row-level security")) {
-          addResult("Expenses Table", false, "✗ RLS policies blocking access. Check policies!", error);
-        } else {
-          addResult("Expenses Table", false, `✗ ${error.message}`, error);
-        }
-      } else {
-        addResult("Expenses Table", true, `✓ Table exists (${data?.length || 0} rows fetched)`, data);
-      }
-    } catch (err: any) {
-      addResult("Expenses Table", false, `✗ Error: ${err.message}`, err);
-    }
-
-    // Test 5: Try to insert a test record (if logged in)
+    // Test 3: Try to insert and delete a test record via API (if logged in)
     if (user) {
       try {
         const testExpense = {
-          user_id: user.id,
           amount: 1,
           description: "Test Expense",
           category: "Other",
-          bank_account: "Test",
-          raw_input: "test",
-          date: new Date().toISOString().split("T")[0],
+          bankAccount: "Test",
+          rawInput: "test",
         };
 
-        const { data, error } = await supabase
-          .from("expenses")
-          .insert(testExpense)
-          .select()
-          .single();
+        const res = await fetch("/api/expenses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(testExpense),
+        });
 
-        if (error) {
-          addResult("Insert Test", false, `✗ ${error.message}`, error);
+        const data = await res.json();
+
+        if (!res.ok) {
+          addResult("Insert Test", false, `✗ ${data.error}`, data);
         } else {
           addResult("Insert Test", true, "✓ Successfully inserted test record", data);
 
           // Clean up test record
           if (data?.id) {
-            await supabase.from("expenses").delete().eq("id", data.id);
-            addResult("Cleanup", true, "✓ Test record deleted", null);
+            const delRes = await fetch(`/api/expenses?id=${data.id}`, { method: "DELETE" });
+            if (delRes.ok) {
+                addResult("Cleanup", true, "✓ Test record deleted", null);
+            } else {
+                addResult("Cleanup", false, "✗ Failed to delete test record", null);
+            }
           }
         }
       } catch (err: any) {
@@ -121,7 +92,7 @@ export default function TestConnectionPage() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-2">🔧 Connection Test</h1>
         <p className="text-white/40 mb-6">
-          Debug your Supabase connection and database setup
+          Debug your MongoDB connection and NextAuth setup
         </p>
 
         <button
@@ -176,26 +147,10 @@ export default function TestConnectionPage() {
           <div className="space-y-3 text-sm">
             <div>
               <p className="font-bold text-red-400">
-                ✗ Database table not found / relation does not exist
+                ✗ Connection failed
               </p>
               <p className="text-white/60">
-                → Run the SQL in <code>FIX_DATABASE.sql</code> in your Supabase SQL Editor
-              </p>
-            </div>
-            <div>
-              <p className="font-bold text-red-400">
-                ✗ Row-level security policy violation
-              </p>
-              <p className="text-white/60">
-                → The RLS policies are blocking access. Run the SQL setup to create proper policies.
-              </p>
-            </div>
-            <div>
-              <p className="font-bold text-red-400">
-                ✗ Failed to fetch / Network error
-              </p>
-              <p className="text-white/60">
-                → Check if your Supabase project is active and the URL/Key are correct in .env.local
+                → Check your MONGODB_URI environment variable and ensure your IP is whitelisted in MongoDB Atlas.
               </p>
             </div>
             <div>

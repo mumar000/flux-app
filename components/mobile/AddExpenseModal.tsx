@@ -66,7 +66,7 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
 
     setIsSubmitting(true);
 
-    // TODO: Supabase Logic Here
+    // TODO: Backend API Logic Here
     setTimeout(() => {
       console.log({ amount, category: selectedCategory });
       setAmount("");

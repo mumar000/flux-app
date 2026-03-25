@@ -2,25 +2,21 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function RootPage() {
   const router = useRouter();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session) {
+    if (!loading) {
+      if (user) {
         router.push("/budget");
       } else {
         router.push("/auth");
       }
-    };
-
-    checkAuth();
-  }, [router]);
+    }
+  }, [user, loading, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0A0A0C]">

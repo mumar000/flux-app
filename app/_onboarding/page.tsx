@@ -6,7 +6,6 @@ export const dynamic = "force-dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase/client";
 
 const onboardingSteps = [
   {
@@ -39,28 +38,28 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { user } = useAuth();
 
+  const completeOnboarding = async () => {
+    if (user) {
+      await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onboarding_completed: true }),
+      });
+    }
+  };
+
   const handleNext = async () => {
     if (currentStep < onboardingSteps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
       // Complete onboarding
-      if (user) {
-        await supabase
-          .from("profiles")
-          .update({ onboarding_completed: true } as never)
-          .eq("id", user.id);
-      }
+      await completeOnboarding();
       router.push("/home");
     }
   };
 
   const handleSkip = async () => {
-    if (user) {
-      await supabase
-        .from("profiles")
-        .update({ onboarding_completed: true } as never)
-        .eq("id", user.id);
-    }
+    await completeOnboarding();
     router.push("/home");
   };
 
