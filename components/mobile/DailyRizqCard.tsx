@@ -153,7 +153,7 @@ export function DailyRizqCard() {
         )}
 
         {/* Main card */}
-        {!exited && !saveFlash && (
+        {!!card && !exited && !saveFlash && (
           <div className="relative" key="card">
             {/* Swipe action backgrounds */}
             <motion.div
