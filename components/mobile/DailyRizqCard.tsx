@@ -44,6 +44,7 @@ export function DailyRizqCard() {
   const { card, isLoading, error, saveCard, dismissCard } = useDailyRizq();
   const [exited, setExited] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
+  const [exitDir, setExitDir] = useState<"save" | "dismiss">("dismiss");
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-8, 8]);
@@ -59,9 +60,11 @@ export function DailyRizqCard() {
 
   const handleDragEnd = (_: any, info: PanInfo) => {
     if (info.offset.x > 100) {
+      setExitDir("save");
       setExited(true);
       saveCard();
     } else if (info.offset.x < -100) {
+      setExitDir("dismiss");
       setExited(true);
       dismissCard();
     }
@@ -200,9 +203,9 @@ export function DailyRizqCard() {
               initial={{ opacity: 0, y: 30, scale: 0.92 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{
-                x: card.saved ? 400 : -400,
+                x: exitDir === "save" ? 400 : -400,
                 opacity: 0,
-                rotate: card.saved ? 12 : -12,
+                rotate: exitDir === "save" ? 12 : -12,
                 transition: { duration: 0.4, ease: "easeIn" },
               }}
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
@@ -317,6 +320,7 @@ export function DailyRizqCard() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.92 }}
                     onClick={() => {
+                      setExitDir("save");
                       setSaveFlash(true);
                       saveCard();
                       setTimeout(() => {
