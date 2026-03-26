@@ -14,6 +14,7 @@ import {
   CATEGORY_COLORS,
 } from "@/utils/expenseParser";
 import { DailyRizqCard } from "@/components/mobile/DailyRizqCard";
+import { GoalsSection } from "@/components/mobile/GoalsSection";
 
 export default function BudgetPage() {
   const { user, loading: authLoading } = useAuth();
@@ -211,6 +212,15 @@ export default function BudgetPage() {
           transition={{ delay: 0.15 }}
         >
           <DailyRizqCard />
+        </motion.div>
+
+        {/* Goals */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <GoalsSection />
         </motion.div>
 
         {/* Pie Chart */}
