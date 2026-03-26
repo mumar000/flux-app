@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpensesQuery } from "@/hooks/queries/useExpenses";
@@ -11,6 +11,90 @@ import { SpendingPieChart } from "@/components/mobile/SpendingPieChart";
 import { DailyRizqCard } from "@/components/mobile/DailyRizqCard";
 import { BottomNav } from "@/components/mobile/BottomNav";
 import { formatPKR, CATEGORY_EMOJIS, CATEGORY_COLORS } from "@/utils/expenseParser";
+
+interface SwipeableExpenseRowProps {
+  expense: ReturnType<typeof expenseService.getMonthlyStats>["expenses"][number];
+  index: number;
+  onDelete: (id: string) => void;
+  formatDate: (s: string) => string;
+}
+
+function SwipeableExpenseRow({ expense, index, onDelete, formatDate }: SwipeableExpenseRowProps) {
+  const x = useMotionValue(0);
+  const deleteOpacity = useTransform(x, [-100, -40, 0], [1, 0.5, 0]);
+  const deleteScale = useTransform(x, [-100, -40, 0], [1.1, 0.85, 0.6]);
+  const cardOpacity = useTransform(x, [-120, -80], [0, 1]);
+
+  const handleDragEnd = (_: unknown, info: { offset: { x: number } }) => {
+    if (info.offset.x < -80) {
+      animate(x, -500, { duration: 0.25, ease: "easeIn" }).then(() => {
+        onDelete(expense.id);
+      });
+    } else {
+      animate(x, 0, { type: "spring", stiffness: 500, damping: 35 });
+    }
+  };
+
+  return (
+    <motion.div
+      key={expense.id}
+      layout
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+      transition={{ delay: index * 0.04 }}
+      className="relative overflow-hidden rounded-[16px]"
+    >
+      {/* Red delete background */}
+      <motion.div
+        style={{ opacity: deleteOpacity }}
+        className="absolute inset-0 flex items-center justify-end pr-5 rounded-[16px]"
+        style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,59,48,0.15) 30%, rgba(255,59,48,0.95) 100%)" }}
+      >
+        <motion.div style={{ scale: deleteScale }} className="flex flex-col items-center gap-1">
+          <span className="text-2xl">🗑️</span>
+          <span className="text-white text-[10px] font-bold tracking-wide">DELETE</span>
+        </motion.div>
+      </motion.div>
+
+      {/* Swipeable card */}
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: -120, right: 0 }}
+        dragElastic={{ left: 0.15, right: 0 }}
+        onDragEnd={handleDragEnd}
+        style={{
+          x,
+          opacity: cardOpacity,
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.07)",
+          borderRadius: "16px",
+        }}
+        className="relative p-4 flex items-center justify-between cursor-grab active:cursor-grabbing"
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="w-11 h-11 rounded-[14px] flex items-center justify-center text-xl flex-shrink-0"
+            style={{ background: `${CATEGORY_COLORS[expense.category] || "#8884d8"}18` }}
+          >
+            {CATEGORY_EMOJIS[expense.category] || "📦"}
+          </div>
+          <div>
+            <p className="font-bold text-white text-sm">{expense.description}</p>
+            <div className="flex items-center gap-1.5 text-xs text-white/35 mt-0.5">
+              <span>{expense.bank_account}</span>
+              <span>·</span>
+              <span>{formatDate(expense.created_at)}</span>
+            </div>
+          </div>
+        </div>
+        <span className="font-extrabold text-white text-sm flex-shrink-0">
+          -{formatPKR(Number(expense.amount))}
+        </span>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 export default function BudgetPage() {
   const { user, loading: authLoading } = useAuth();
@@ -141,34 +225,13 @@ export default function BudgetPage() {
           <div className="space-y-2.5">
             <AnimatePresence mode="popLayout">
               {visibleExpenses.map((expense, i) => (
-                <motion.div key={expense.id} layout
-                  initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -80 }} transition={{ delay: i * 0.04 }}
-                  className="rounded-[16px] p-4 flex items-center justify-between group"
-                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-[14px] flex items-center justify-center text-xl flex-shrink-0"
-                      style={{ background: `${CATEGORY_COLORS[expense.category] || "#8884d8"}18` }}>
-                      {CATEGORY_EMOJIS[expense.category] || "📦"}
-                    </div>
-                    <div>
-                      <p className="font-bold text-white text-sm">{expense.description}</p>
-                      <div className="flex items-center gap-1.5 text-xs text-white/35 mt-0.5">
-                        <span>{expense.bank_account}</span>
-                        <span>·</span>
-                        <span>{formatDate(expense.created_at)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className="font-extrabold text-white text-sm">-{formatPKR(Number(expense.amount))}</span>
-                    <motion.button whileTap={{ scale: 0.85 }}
-                      onClick={() => deleteExpense.mutate(expense.id)}
-                      className="opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity text-red-400 text-sm p-1">
-                      🗑️
-                    </motion.button>
-                  </div>
-                </motion.div>
+                <SwipeableExpenseRow
+                  key={expense.id}
+                  expense={expense}
+                  index={i}
+                  onDelete={(id) => deleteExpense.mutate(id)}
+                  formatDate={formatDate}
+                />
               ))}
             </AnimatePresence>
 
