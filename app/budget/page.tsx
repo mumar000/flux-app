@@ -111,8 +111,12 @@ export default function BudgetPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const { data: expenses = [], isLoading, refetch } = useExpensesQuery();
+  const { data: expenses = [], isLoading: expensesLoading, refetch } = useExpensesQuery();
   const deleteExpense = useDeleteExpense();
+
+  // Treat auth-loading and data-loading as one phase so the page doesn't
+  // flash empty content before skeletons kick in.
+  const isLoading = authLoading || expensesLoading;
 
   const [showAll, setShowAll] = useState(false);
 
