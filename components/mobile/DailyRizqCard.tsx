@@ -67,14 +67,15 @@ export function DailyRizqCard() {
     }
   };
 
+  // During SSR or when disabled: isLoading=false, card=null — render nothing
   if (error || (!isLoading && !card)) return null;
 
-  // Already interacted — don't show on refresh
-  if (card.saved || card.dismissed || exited) {
+  // Already interacted — don't show on refresh (only when card is loaded)
+  if (card && (card.saved || card.dismissed || exited)) {
     if (!saveFlash) return null;
   }
 
-  const config = TYPE_CONFIG[card.type] || TYPE_CONFIG.insight;
+  const config = card ? (TYPE_CONFIG[card.type] || TYPE_CONFIG.insight) : TYPE_CONFIG.insight;
 
   return (
     <div className="relative">
