@@ -146,3 +146,40 @@ const BudgetSchema = new Schema<IBudget>(
 );
 
 export const Budget = mongoose.models.Budget || mongoose.model<IBudget>("Budget", BudgetSchema);
+
+// --- DailyRizq ---
+export interface IDailyRizq extends Document {
+  _id: mongoose.Types.ObjectId;
+  userId: string;
+  type: "insight" | "challenge" | "question" | "comparison";
+  emoji: string;
+  title: string;
+  body: string;
+  tone: string; // e.g. "playful", "curious", "motivating"
+  date: string; // YYYY-MM-DD — one card per day
+  saved: boolean; // saved to reflections
+  dismissed: boolean;
+  interactedAt: Date | null;
+  createdAt: Date;
+}
+
+const DailyRizqSchema = new Schema<IDailyRizq>(
+  {
+    userId: { type: String, required: true },
+    type: { type: String, required: true, enum: ["insight", "challenge", "question", "comparison"] },
+    emoji: { type: String, required: true },
+    title: { type: String, required: true },
+    body: { type: String, required: true },
+    tone: { type: String, default: "playful" },
+    date: { type: String, required: true },
+    saved: { type: Boolean, default: false },
+    dismissed: { type: Boolean, default: false },
+    interactedAt: { type: Date, default: null },
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
+);
+
+// One card per user per day
+DailyRizqSchema.index({ userId: 1, date: 1 }, { unique: true });
+
+export const DailyRizq = mongoose.models.DailyRizq || mongoose.model<IDailyRizq>("DailyRizq", DailyRizqSchema);
