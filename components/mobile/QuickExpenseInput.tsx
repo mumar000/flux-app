@@ -41,7 +41,8 @@ export function QuickExpenseInput({ onExpenseAdded, open: externalOpen, onClose:
   const isControlled = externalOpen !== undefined;
   const isOpen = isControlled ? externalOpen : internalOpen;
   const [amount, setAmount] = useState("");
-  
+  const [description, setDescription] = useState("");
+
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
   const [banks, setBanks] = useState(FALLBACK_BANKS);
   
@@ -92,6 +93,7 @@ export function QuickExpenseInput({ onExpenseAdded, open: externalOpen, onClose:
   // Reset
   const resetFields = () => {
     setAmount("");
+    setDescription("");
     setSwipeProgress(0);
   };
 
@@ -142,11 +144,12 @@ export function QuickExpenseInput({ onExpenseAdded, open: externalOpen, onClose:
   const handleSubmit = () => {
     if (!amount || parseFloat(amount) <= 0) return;
 
-    const rawInput = `${amount}rs ${category.id} from ${bank.name}`;
+    const desc = description.trim() || category.id;
+    const rawInput = `${amount}rs ${desc} from ${bank.name}`;
 
     onExpenseAdded({
       amount: parseFloat(amount),
-      description: category.id,
+      description: desc,
       bankAccount: bank.name,
       category: category.id,
       rawInput,
@@ -287,6 +290,66 @@ export function QuickExpenseInput({ onExpenseAdded, open: externalOpen, onClose:
                     </motion.span>
                   </div>
                 </motion.div>
+
+                {/* Description */}
+                <div className="mb-4 px-1">
+                  <motion.div
+                    initial={false}
+                    animate={{
+                      borderColor: description
+                        ? "rgba(204,255,0,0.35)"
+                        : "rgba(255,255,255,0.08)",
+                    }}
+                    className="flex items-center gap-2 px-4 py-3 rounded-2xl"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <motion.span
+                      animate={{ scale: description ? 1.15 : 1 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                      className="text-lg flex-shrink-0"
+                    >
+                      {description ? "✏️" : "💬"}
+                    </motion.span>
+                    <input
+                      value={description}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 48) setDescription(e.target.value);
+                      }}
+                      className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-white/25"
+                      placeholder="What was it for? (optional)"
+                      maxLength={48}
+                    />
+                    <AnimatePresence>
+                      {description && (
+                        <motion.button
+                          initial={{ opacity: 0, scale: 0.6 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.6 }}
+                          whileTap={{ scale: 0.85 }}
+                          onClick={() => setDescription("")}
+                          className="text-white/25 hover:text-white/50 flex-shrink-0 text-xs"
+                        >
+                          ✕
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                  <AnimatePresence>
+                    {description && (
+                      <motion.p
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="text-right text-[10px] text-white/20 mt-1 pr-1"
+                      >
+                        {description.length}/48
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                </div>
 
                 {/* Category Selector - Horizontal Scroll */}
                 <div className="mb-3">
