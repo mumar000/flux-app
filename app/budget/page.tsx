@@ -108,15 +108,17 @@ function Skeleton({ className, style }: { className?: string; style?: React.CSSP
 }
 
 export default function BudgetPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, status } = useAuth();
   const router = useRouter();
 
   const { data: expenses = [], isLoading: expensesLoading, refetch } = useExpensesQuery();
   const deleteExpense = useDeleteExpense();
 
-  // Treat auth-loading and data-loading as one phase so the page doesn't
-  // flash empty content before skeletons kick in.
-  const isLoading = authLoading || expensesLoading;
+  // Use `status !== "authenticated"` instead of `authLoading` so we stay in
+  // loading state across the one-render gap where auth just resolved but the
+  // expenses query hasn't started fetching yet (isLoading is false when
+  // enabled:false in TanStack Query).
+  const isLoading = status !== "authenticated" || expensesLoading;
 
   const [showAll, setShowAll] = useState(false);
 
@@ -151,7 +153,7 @@ export default function BudgetPage() {
     <div className="min-h-screen flex flex-col pb-28" style={{ backgroundColor: "#0F0F11" }}>
 
       {/* Header */}
-      <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="px-6 pt-10 pb-4">
+      <header className="px-6 pt-10 pb-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[#8F90A6] text-xs font-extrabold tracking-widest uppercase">Rizqly</p>
@@ -192,18 +194,18 @@ export default function BudgetPage() {
             )}
           </AnimatePresence>
         </motion.div>
-      </motion.header>
+      </header>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 space-y-6">
 
         {/* Daily Rizq — always reserve space */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        <div>
           <DailyRizqCard />
-        </motion.div>
+        </div>
 
         {/* Pie chart — skeleton while loading */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+        <div>
           <AnimatePresence mode="wait">
             {isLoading ? (
               <motion.div key="skel-chart" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -224,7 +226,7 @@ export default function BudgetPage() {
               </motion.div>
             )}
           </AnimatePresence>
-        </motion.div>
+        </div>
 
         {/* Bank breakdown */}
         <AnimatePresence>
@@ -258,7 +260,7 @@ export default function BudgetPage() {
         </AnimatePresence>
 
         {/* Transactions */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="pb-4">
+        <div className="pb-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-extrabold text-white">Recent Transactions</h3>
             {!isLoading && monthlyStats.expenses.length > 5 && (
@@ -302,7 +304,7 @@ export default function BudgetPage() {
               </motion.div>
             )}
           </div>
-        </motion.div>
+        </div>
       </div>
 
       <BottomNav />
