@@ -5,7 +5,8 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { QuickExpenseInput } from "@/components/mobile/QuickExpenseInput";
-import { useExpenses } from "@/hooks/useExpenses";
+import { useAddExpense } from "@/hooks/mutations/useAddExpense";
+import type { CreateExpenseInput } from "@/services/expense.service";
 
 function HomeIcon({ filled }: { filled: boolean }) {
   return (
@@ -51,24 +52,13 @@ const NAV_ITEMS = [
   { label: "Settings", href: "/settings", Icon: SettingsIcon },
 ];
 
-interface BottomNavProps {
-  onExpenseAdded?: (expense: {
-    amount: number; description: string;
-    bankAccount: string; category: string; rawInput: string;
-  }) => void;
-}
-
-export function BottomNav({ onExpenseAdded }: BottomNavProps) {
+export function BottomNav() {
   const pathname = usePathname();
   const [showAdd, setShowAdd] = useState(false);
-  const { addExpense } = useExpenses();
+  const { mutate: addExpense } = useAddExpense();
 
-  const handleExpenseAdded = async (expense: {
-    amount: number; description: string;
-    bankAccount: string; category: string; rawInput: string;
-  }) => {
-    await addExpense(expense);
-    onExpenseAdded?.(expense);
+  const handleExpenseAdded = (expense: CreateExpenseInput) => {
+    addExpense(expense);
   };
 
   return (

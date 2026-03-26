@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpensesQuery } from "@/hooks/queries/useExpenses";
-import { useAddExpense } from "@/hooks/mutations/useAddExpense";
 import { useDeleteExpense } from "@/hooks/mutations/useDeleteExpense";
 import { expenseService } from "@/services/expense.service";
 import { SpendingPieChart } from "@/components/mobile/SpendingPieChart";
@@ -18,7 +17,6 @@ export default function BudgetPage() {
   const router = useRouter();
 
   const { data: expenses = [], isLoading, refetch } = useExpensesQuery();
-  const addExpense = useAddExpense();
   const deleteExpense = useDeleteExpense();
 
   const [showAll, setShowAll] = useState(false);
@@ -185,7 +183,7 @@ export default function BudgetPage() {
         </motion.div>
       </div>
 
-      <BottomNav onExpenseAdded={(e) => addExpense.mutate(e)} />
+      <BottomNav />
     </div>
   );
 }
