@@ -46,17 +46,7 @@ export default function BudgetPage() {
 
   const currentMonth = new Date().toLocaleDateString("en-PK", { month: "long", year: "numeric" });
 
-  if (isLoading || authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0F0F11" }}>
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="text-4xl">
-          💫
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (!user) return null;
+  if (!user && !authLoading) return null;
 
   return (
     <div className="min-h-screen flex flex-col relative pb-28" style={{ backgroundColor: "#0F0F11" }}>

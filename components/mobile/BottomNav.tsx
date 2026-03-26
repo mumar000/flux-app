@@ -1,13 +1,12 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { QuickExpenseInput } from "@/components/mobile/QuickExpenseInput";
 import { useExpenses } from "@/hooks/useExpenses";
 
-// ── SVG Icons ─────────────────────────────────────────────────────────────────
 function HomeIcon({ filled }: { filled: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -28,7 +27,7 @@ function GoalsIcon({ filled }: { filled: boolean }) {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="12" r="9" stroke={c} strokeWidth="1.8" />
       <circle cx="12" cy="12" r="5.5" stroke={c} strokeWidth="1.8" />
-      <circle cx="12" cy="12" r="2" fill={filled ? "#CCFF00" : c} />
+      <circle cx="12" cy="12" r="2" fill={c} />
     </svg>
   );
 }
@@ -40,43 +39,27 @@ function SettingsIcon({ filled }: { filled: boolean }) {
       <circle cx="12" cy="12" r="3" stroke={c} strokeWidth="1.8" />
       <path
         d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
-        stroke={c}
-        strokeWidth="1.8"
-        strokeLinecap="round"
+        stroke={c} strokeWidth="1.8" strokeLinecap="round"
       />
     </svg>
   );
 }
 
-function PlusIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <path d="M12 5v14M5 12h14" stroke="#000" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
 const NAV_ITEMS = [
-  { label: "Home",     href: "/budget",   icon: HomeIcon },
-  { label: "Goals",    href: "/goals",    icon: GoalsIcon },
-  { label: "Settings", href: "/settings", icon: SettingsIcon },
+  { label: "Home",     href: "/budget",   Icon: HomeIcon },
+  { label: "Goals",    href: "/goals",    Icon: GoalsIcon },
+  { label: "Settings", href: "/settings", Icon: SettingsIcon },
 ];
 
 interface BottomNavProps {
   onExpenseAdded?: (expense: {
-    amount: number;
-    description: string;
-    bankAccount: string;
-    category: string;
-    rawInput: string;
+    amount: number; description: string;
+    bankAccount: string; category: string; rawInput: string;
   }) => void;
 }
 
 export function BottomNav({ onExpenseAdded }: BottomNavProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
   const { addExpense } = useExpenses();
 
@@ -90,106 +73,86 @@ export function BottomNav({ onExpenseAdded }: BottomNavProps) {
 
   return (
     <>
-      {/* Nav bar */}
       <div
         className="fixed bottom-0 inset-x-0 z-30"
         style={{
-          background: "rgba(13, 13, 17, 0.85)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
+          background: "rgba(13,13,17,0.88)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
           borderTop: "1px solid rgba(255,255,255,0.07)",
         }}
       >
-        <div className="flex items-center justify-around px-4 pt-2 pb-6 max-w-lg mx-auto relative">
+        <div className="flex items-center px-4 pt-2 pb-6 max-w-lg mx-auto">
 
-          {/* Left two tabs */}
-          {NAV_ITEMS.slice(0, 2).map((item) => {
-            const active = pathname === item.href;
+          {/* Left tabs */}
+          {NAV_ITEMS.slice(0, 2).map(({ label, href, Icon }) => {
+            const active = pathname === href;
             return (
-              <button
-                key={item.href}
-                onClick={() => router.push(item.href)}
-                className="flex flex-col items-center gap-1 flex-1 py-1 relative"
-              >
-                <motion.div
-                  animate={{ scale: active ? 1.1 : 1 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                >
-                  <item.icon filled={active} />
+              <Link key={href} href={href} className="flex flex-col items-center gap-1 flex-1 py-1 relative">
+                <motion.div animate={{ scale: active ? 1.1 : 1 }} transition={{ type: "spring", stiffness: 500, damping: 25 }}>
+                  <Icon filled={active} />
                 </motion.div>
-                <span
-                  className="text-[10px] font-bold tracking-wide"
-                  style={{ color: active ? "#CCFF00" : "rgba(255,255,255,0.35)" }}
-                >
-                  {item.label}
+                <span className="text-[10px] font-bold" style={{ color: active ? "#CCFF00" : "rgba(255,255,255,0.35)" }}>
+                  {label}
                 </span>
                 {active && (
                   <motion.div
-                    layoutId="nav-dot"
-                    className="absolute -bottom-1.5 w-1 h-1 rounded-full"
+                    layoutId="nav-indicator"
+                    className="absolute -bottom-1.5 w-4 h-0.5 rounded-full"
                     style={{ background: "#CCFF00" }}
                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
                   />
                 )}
-              </button>
+              </Link>
             );
           })}
 
           {/* Center FAB */}
-          <div className="flex-1 flex justify-center -mt-6">
+          <div className="flex-1 flex justify-center -mt-5">
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.88 }}
               onClick={() => setShowAdd(true)}
-              className="w-14 h-14 rounded-full flex items-center justify-center shadow-xl"
+              className="w-14 h-14 rounded-full flex items-center justify-center"
               style={{
                 background: "#CCFF00",
-                boxShadow: "0 0 24px rgba(204,255,0,0.4), 0 4px 16px rgba(0,0,0,0.4)",
+                boxShadow: "0 0 20px rgba(204,255,0,0.45), 0 4px 12px rgba(0,0,0,0.5)",
               }}
             >
-              <motion.div
+              <motion.svg
+                width="22" height="22" viewBox="0 0 24 24" fill="none"
                 animate={{ rotate: showAdd ? 45 : 0 }}
-                transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                transition={{ type: "spring", stiffness: 500, damping: 25 }}
               >
-                <PlusIcon />
-              </motion.div>
+                <path d="M12 5v14M5 12h14" stroke="#000" strokeWidth="2.5" strokeLinecap="round" />
+              </motion.svg>
             </motion.button>
           </div>
 
           {/* Right tab */}
-          {NAV_ITEMS.slice(2).map((item) => {
-            const active = pathname === item.href;
+          {NAV_ITEMS.slice(2).map(({ label, href, Icon }) => {
+            const active = pathname === href;
             return (
-              <button
-                key={item.href}
-                onClick={() => router.push(item.href)}
-                className="flex flex-col items-center gap-1 flex-1 py-1 relative"
-              >
-                <motion.div
-                  animate={{ scale: active ? 1.1 : 1 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                >
-                  <item.icon filled={active} />
+              <Link key={href} href={href} className="flex flex-col items-center gap-1 flex-1 py-1 relative">
+                <motion.div animate={{ scale: active ? 1.1 : 1 }} transition={{ type: "spring", stiffness: 500, damping: 25 }}>
+                  <Icon filled={active} />
                 </motion.div>
-                <span
-                  className="text-[10px] font-bold tracking-wide"
-                  style={{ color: active ? "#CCFF00" : "rgba(255,255,255,0.35)" }}
-                >
-                  {item.label}
+                <span className="text-[10px] font-bold" style={{ color: active ? "#CCFF00" : "rgba(255,255,255,0.35)" }}>
+                  {label}
                 </span>
                 {active && (
                   <motion.div
-                    layoutId="nav-dot"
-                    className="absolute -bottom-1.5 w-1 h-1 rounded-full"
+                    layoutId="nav-indicator"
+                    className="absolute -bottom-1.5 w-4 h-0.5 rounded-full"
                     style={{ background: "#CCFF00" }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
                   />
                 )}
-              </button>
+              </Link>
             );
           })}
         </div>
       </div>
 
-      {/* Quick add expense sheet — controlled externally by BottomNav FAB */}
       <QuickExpenseInput
         onExpenseAdded={handleExpenseAdded}
         open={showAdd}

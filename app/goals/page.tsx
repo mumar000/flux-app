@@ -309,17 +309,7 @@ export default function GoalsPage() {
     if (!authLoading && !user) router.push("/auth");
   }, [user, authLoading, router]);
 
-  if (authLoading || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0F0F11" }}>
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="text-4xl">
-          💫
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (!user) return null;
+  if (!user && !authLoading) return null;
 
   const active = goals.filter(g => !g.completed);
   const done = goals.filter(g => g.completed);
