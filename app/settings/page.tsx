@@ -2,332 +2,209 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { useCategories } from "@/hooks/queries/useCategories";
+import { useBanks } from "@/hooks/queries/useBanks";
+import { useAddCategory } from "@/hooks/mutations/useAddCategory";
+import { useDeleteCategory } from "@/hooks/mutations/useDeleteCategory";
+import { useAddBank } from "@/hooks/mutations/useAddBank";
+import { useDeleteBank } from "@/hooks/mutations/useDeleteBank";
 import { BottomNav } from "@/components/mobile/BottomNav";
-
-interface Category {
-  id: string;
-  name: string;
-  emoji: string;
-  color: string;
-  is_default: boolean;
-}
-
-interface Bank {
-  id: string;
-  name: string;
-  icon?: string;
-}
 
 export default function SettingsPage() {
   const { user, signOut, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [banks, setBanks] = useState<Bank[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const { data: categories = [] } = useCategories();
+  const { data: banks = [] } = useBanks();
+
+  const addCategory = useAddCategory();
+  const deleteCategory = useDeleteCategory();
+  const addBank = useAddBank();
+  const deleteBank = useDeleteBank();
 
   const [newCatName, setNewCatName] = useState("");
   const [newCatEmoji, setNewCatEmoji] = useState("📦");
   const [newBankName, setNewBankName] = useState("");
 
-  // Redirect to auth if not logged in
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/auth");
-    }
+    if (!authLoading && !user) router.push("/auth");
   }, [user, authLoading, router]);
 
-  useEffect(() => {
-    if (!user) return;
-    fetchSettings();
-  }, [user]);
+  if (!user && !authLoading) return null;
 
-  const fetchSettings = async () => {
-    setLoading(true);
-    try {
-      // Fetch categories
-      const catRes = await fetch("/api/categories");
-      if (catRes.ok) {
-        const catData = await catRes.json();
-        setCategories(catData || []);
-      }
-
-      // Fetch banks
-      const bankRes = await fetch("/api/banks");
-      if (bankRes.ok) {
-         const bankData = await bankRes.json();
-         setBanks(bankData || []);
-      }
-    } catch (err) {
-      console.error("Error fetching settings:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addCategory = async () => {
-    if (!newCatName || !user) return;
-    try {
-      const res = await fetch("/api/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newCatName,
-          emoji: newCatEmoji,
-          color: "#" + Math.floor(Math.random() * 16777215).toString(16),
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed");
-      const data = await res.json();
-      setCategories([...categories, data]);
-      setNewCatName("");
-    } catch (err) {
-      alert("Error adding category");
-    }
-  };
-
-  const deleteCategory = async (id: string, isDefault: boolean) => {
-    if (isDefault) return;
-    try {
-      const res = await fetch(`/api/categories?id=${id}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) throw new Error("Failed");
-      setCategories(categories.filter((c) => c.id !== id));
-    } catch (err) {
-      alert("Error deleting category");
-    }
-  };
-
-  const addBank = async () => {
-    if (!newBankName || !user) return;
-    try {
-      const res = await fetch("/api/banks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newBankName,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed");
-      const data = await res.json();
-      setBanks([...banks, data]);
-      setNewBankName("");
-    } catch (err) {
-      alert("Error adding bank.");
-    }
-  };
-
-  const deleteBank = async (id: string) => {
-    try {
-      const res = await fetch(`/api/banks?id=${id}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) throw new Error("Failed");
-      setBanks(banks.filter((b) => b.id !== id));
-    } catch (err) {
-      alert("Error deleting bank");
-    }
-  };
-
-  // Show loading while auth is loading
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0F0F11]">
-        <div className="w-12 h-12 border-4 border-[#CCFF00]/30 border-t-[#CCFF00] rounded-full animate-spin" />
-      </div>
+  const handleAddCategory = () => {
+    if (!newCatName.trim()) return;
+    addCategory.mutate(
+      {
+        name: newCatName.trim(),
+        emoji: newCatEmoji,
+        color: "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0"),
+      },
+      { onSuccess: () => setNewCatName("") }
     );
-  }
+  };
 
-  if (!user) return null;
+  const handleAddBank = () => {
+    if (!newBankName.trim()) return;
+    addBank.mutate(newBankName.trim(), { onSuccess: () => setNewBankName("") });
+  };
 
   return (
     <div className="min-h-screen bg-[#0F0F11] text-white pb-32">
+
       {/* Header */}
       <div className="px-6 pt-12 pb-6 border-b border-white/5">
-        <div className="flex items-center justify-between mb-2">
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => router.push("/budget")}
-            className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center"
-          >
-            ⬅️
-          </motion.button>
-          <h1 className="text-xl font-bold">Settings</h1>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={signOut}
-            className="text-red-400 text-sm font-bold"
-          >
-            Log Out
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-2xl font-extrabold">Settings</h1>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={signOut}
+            className="text-red-400 text-sm font-bold px-3 py-1.5 rounded-xl"
+            style={{ background: "rgba(255,59,48,0.08)", border: "1px solid rgba(255,59,48,0.15)" }}>
+            Log out
           </motion.button>
         </div>
-        <p className="text-white/40 text-sm">Personalize your financial flow</p>
+        <p className="text-white/30 text-sm">Personalize your financial flow</p>
       </div>
 
       <div className="px-6 mt-8 space-y-10">
-        {/* Categories Section */}
+
+        {/* Profile */}
+        <section className="rounded-[28px] p-5 relative overflow-hidden"
+          style={{ background: "linear-gradient(135deg, rgba(167,139,250,0.1), rgba(236,72,153,0.06))", border: "1px solid rgba(167,139,250,0.15)" }}>
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
+              style={{ background: "rgba(255,255,255,0.08)" }}>
+              👤
+            </div>
+            <div>
+              <p className="text-white/40 text-[10px] uppercase tracking-widest font-bold">Logged in as</p>
+              <p className="text-white font-extrabold">{user?.email}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Categories */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              🏷️ Categories
-            </h2>
-            <span className="text-[10px] bg-[#CCFF00]/10 text-[#CCFF00] px-2 py-1 rounded-full uppercase font-black">
+            <h2 className="text-base font-extrabold flex items-center gap-2">🏷️ Categories</h2>
+            <span className="text-[10px] px-2 py-1 rounded-full font-extrabold uppercase"
+              style={{ background: "rgba(204,255,0,0.1)", color: "#CCFF00" }}>
               {categories.length} total
             </span>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 mb-4">
-            {categories.map((cat) => (
-              <motion.div
-                key={cat.id}
-                layout
-                className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="text-2xl w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center">
-                    {cat.emoji}
+          <div className="space-y-2 mb-4">
+            <AnimatePresence>
+              {categories.map((cat) => (
+                <motion.div key={cat.id} layout
+                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="flex items-center justify-between p-4 rounded-2xl"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                      style={{ background: "rgba(255,255,255,0.06)" }}>
+                      {cat.emoji}
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">{cat.name}</p>
+                      {cat.is_default && (
+                        <span className="text-[10px] text-white/25 uppercase font-bold">Default</span>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold">{cat.name}</p>
-                    {cat.is_default && (
-                      <span className="text-[10px] text-white/30 uppercase">
-                        System Default
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {!cat.is_default && (
-                  <button
-                    onClick={() => deleteCategory(cat.id, cat.is_default)}
-                    className="p-2 text-white/20 hover:text-red-400 transition-colors"
-                  >
-                    🗑️
-                  </button>
-                )}
-              </motion.div>
-            ))}
+                  {!cat.is_default && (
+                    <motion.button whileTap={{ scale: 0.85 }}
+                      onClick={() => deleteCategory.mutate(cat.id)}
+                      className="text-white/20 hover:text-red-400 active:text-red-400 transition-colors p-1.5">
+                      🗑️
+                    </motion.button>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
 
-          {/* Add Category Form */}
-          <div className="p-4 bg-white/[0.02] border border-dashed border-white/10 rounded-2xl">
+          {/* Add category */}
+          <div className="p-4 rounded-2xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)" }}>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={newCatEmoji}
-                onChange={(e) => setNewCatEmoji(e.target.value)}
-                className="w-12 h-12 bg-white/5 border border-white/10 rounded-xl text-center text-xl focus:outline-none focus:ring-1 focus:ring-[#CCFF00]"
-                placeholder="🍕"
-              />
-              <input
-                type="text"
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                className="flex-1 px-4 h-12 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#CCFF00] text-sm"
-                placeholder="New Category Name..."
-              />
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={addCategory}
-                className="px-4 h-12 bg-[#CCFF00] text-black font-black rounded-xl text-sm"
-              >
-                ADD
+              <input value={newCatEmoji} onChange={(e) => setNewCatEmoji(e.target.value)}
+                className="w-12 h-12 rounded-xl text-center text-xl outline-none focus:ring-1 focus:ring-[#CCFF00]"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+                placeholder="🍕" />
+              <input value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+                className="flex-1 px-4 h-12 rounded-xl text-sm outline-none focus:ring-1 focus:ring-[#CCFF00] text-white placeholder:text-white/20"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+                placeholder="New category name..." />
+              <motion.button whileTap={{ scale: 0.92 }} onClick={handleAddCategory}
+                disabled={addCategory.isPending}
+                className="px-4 h-12 rounded-xl text-black font-extrabold text-sm disabled:opacity-50"
+                style={{ background: "#CCFF00" }}>
+                Add
               </motion.button>
             </div>
           </div>
         </section>
 
-        {/* Banks Section */}
+        {/* Banks */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              🏦 Banks & Accounts
-            </h2>
+            <h2 className="text-base font-extrabold flex items-center gap-2">🏦 Banks & Accounts</h2>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 mb-4">
+          <div className="space-y-2 mb-4">
             <AnimatePresence>
               {banks.map((bank) => (
-                <motion.div
-                  key={bank.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="text-2xl w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center">
+                <motion.div key={bank.id} layout
+                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="flex items-center justify-between p-4 rounded-2xl"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                      style={{ background: "rgba(255,255,255,0.06)" }}>
                       💳
                     </div>
-                    <p className="font-bold">{bank.name}</p>
+                    <p className="font-bold text-sm">{bank.name}</p>
                   </div>
-                  <button
-                    onClick={() => deleteBank(bank.id)}
-                    className="p-2 text-white/20 hover:text-red-400 transition-colors"
-                  >
+                  <motion.button whileTap={{ scale: 0.85 }}
+                    onClick={() => deleteBank.mutate(bank.id)}
+                    className="text-white/20 hover:text-red-400 active:text-red-400 transition-colors p-1.5">
                     🗑️
-                  </button>
+                  </motion.button>
                 </motion.div>
               ))}
             </AnimatePresence>
 
             {banks.length === 0 && (
-              <p className="text-white/20 text-center py-4 text-sm bg-white/[0.01] rounded-2xl border border-dashed border-white/5">
-                No custom banks added yet.
-                <br />
-                We'll still auto-detect main banks from your text!
+              <p className="text-white/20 text-center py-4 text-sm rounded-2xl"
+                style={{ background: "rgba(255,255,255,0.01)", border: "1px dashed rgba(255,255,255,0.06)" }}>
+                No custom banks yet
               </p>
             )}
           </div>
 
-          {/* Add Bank Form */}
-          <div className="p-4 bg-white/[0.02] border border-dashed border-white/10 rounded-2xl">
+          {/* Add bank */}
+          <div className="p-4 rounded-2xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)" }}>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={newBankName}
-                onChange={(e) => setNewBankName(e.target.value)}
-                className="flex-1 px-4 h-12 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#CCFF00] text-sm"
-                placeholder="e.g. My Secret Stash, Meezan..."
-              />
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={addBank}
-                className="px-4 h-12 bg-[#CCFF00] text-black font-black rounded-xl text-sm"
-              >
-                ADD
+              <input value={newBankName} onChange={(e) => setNewBankName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddBank()}
+                className="flex-1 px-4 h-12 rounded-xl text-sm outline-none focus:ring-1 focus:ring-[#CCFF00] text-white placeholder:text-white/20"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+                placeholder="e.g. Meezan, My Stash..." />
+              <motion.button whileTap={{ scale: 0.92 }} onClick={handleAddBank}
+                disabled={addBank.isPending}
+                className="px-4 h-12 rounded-xl text-black font-extrabold text-sm disabled:opacity-50"
+                style={{ background: "#CCFF00" }}>
+                Add
               </motion.button>
             </div>
           </div>
         </section>
-
-        {/* Profile Card */}
-        <section className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 p-6 rounded-[32px] border border-white/10">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center text-3xl shadow-2xl">
-              👤
-            </div>
-            <div>
-              <p className="text-white/50 text-xs uppercase font-bold tracking-widest">
-                Logged in as
-              </p>
-              <h3 className="text-lg font-black">{user.email}</h3>
-            </div>
-          </div>
-          <div className="h-px bg-white/5 my-4" />
-          <p className="text-white/40 text-[10px] leading-relaxed">
-            Your data is synced with the cloud. You can access your budget from
-            any device.
-          </p>
-        </section>
       </div>
 
-      <div className="h-10" />
       <BottomNav />
     </div>
   );

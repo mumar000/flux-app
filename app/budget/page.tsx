@@ -1,88 +1,71 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SpendingPieChart } from "@/components/mobile/SpendingPieChart";
-import { useExpenses } from "@/hooks/useExpenses";
-import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
-import { formatPKR, CATEGORY_EMOJIS, CATEGORY_COLORS } from "@/utils/expenseParser";
+import { useAuth } from "@/hooks/useAuth";
+import { useExpensesQuery } from "@/hooks/queries/useExpenses";
+import { useAddExpense } from "@/hooks/mutations/useAddExpense";
+import { useDeleteExpense } from "@/hooks/mutations/useDeleteExpense";
+import { expenseService } from "@/services/expense.service";
+import { SpendingPieChart } from "@/components/mobile/SpendingPieChart";
 import { DailyRizqCard } from "@/components/mobile/DailyRizqCard";
 import { BottomNav } from "@/components/mobile/BottomNav";
+import { formatPKR, CATEGORY_EMOJIS, CATEGORY_COLORS } from "@/utils/expenseParser";
 
 export default function BudgetPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const {
-    expenses,
-    addExpense,
-    deleteExpense,
-    getMonthlyStats,
-    isLoading,
-    error,
-    isOnline,
-    refresh,
-  } = useExpenses();
-  const [showAllTransactions, setShowAllTransactions] = useState(false);
+
+  const { data: expenses = [], isLoading, refetch } = useExpensesQuery();
+  const addExpense = useAddExpense();
+  const deleteExpense = useDeleteExpense();
+
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/auth");
   }, [user, authLoading, router]);
 
-  const monthlyStats = getMonthlyStats();
+  const monthlyStats = useMemo(
+    () => expenseService.getMonthlyStats(expenses),
+    [expenses]
+  );
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const diffMs = Date.now() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString("en-PK", { month: "short", day: "numeric" });
+  const formatDate = (s: string) => {
+    const diffMs = Date.now() - new Date(s).getTime();
+    const m = Math.floor(diffMs / 60000);
+    const h = Math.floor(diffMs / 3600000);
+    const d = Math.floor(diffMs / 86400000);
+    if (m < 1) return "Just now";
+    if (m < 60) return `${m}m ago`;
+    if (h < 24) return `${h}h ago`;
+    if (d < 7) return `${d}d ago`;
+    return new Date(s).toLocaleDateString("en-PK", { month: "short", day: "numeric" });
   };
 
   const currentMonth = new Date().toLocaleDateString("en-PK", { month: "long", year: "numeric" });
 
   if (!user && !authLoading) return null;
 
+  const visibleExpenses = showAll ? monthlyStats.expenses : monthlyStats.expenses.slice(0, 5);
+
   return (
-    <div className="min-h-screen flex flex-col relative pb-28" style={{ backgroundColor: "#0F0F11" }}>
+    <div className="min-h-screen flex flex-col pb-28" style={{ backgroundColor: "#0F0F11" }}>
 
       {/* Header */}
       <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="px-6 pt-10 pb-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2">
-              <p className="text-[#8F90A6] text-xs font-extrabold tracking-widest uppercase">Rizqly</p>
-              <div
-                className="w-1.5 h-1.5 rounded-full"
-                style={{
-                  background: isOnline ? "#22C55E" : "#F59E0B",
-                  boxShadow: isOnline ? "0 0 6px #22C55E" : "0 0 6px #F59E0B",
-                }}
-              />
-            </div>
+            <p className="text-[#8F90A6] text-xs font-extrabold tracking-widest uppercase">Rizqly</p>
             <h1 className="text-2xl font-extrabold text-white mt-0.5">{currentMonth}</h1>
           </div>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={refresh}
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => refetch()}
             className="w-10 h-10 rounded-2xl flex items-center justify-center text-lg"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
-          >
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
             🔄
           </motion.button>
         </div>
-
-        {error && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            className="mt-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs font-medium">
-            {error}
-          </motion.div>
-        )}
 
         {/* Total spent card */}
         <motion.div
@@ -98,7 +81,7 @@ export default function BudgetPage() {
           <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-1">Total Spent</p>
           <motion.h2 key={monthlyStats.totalSpent} initial={{ scale: 1.08, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
             className="text-4xl font-extrabold text-white">
-            {formatPKR(monthlyStats.totalSpent)}
+            {isLoading ? "—" : formatPKR(monthlyStats.totalSpent)}
           </motion.h2>
           <p className="text-white/35 text-sm mt-1">
             {monthlyStats.expenses.length} transaction{monthlyStats.expenses.length !== 1 ? "s" : ""} this month
@@ -106,15 +89,13 @@ export default function BudgetPage() {
         </motion.div>
       </motion.header>
 
-      {/* Scrollable content */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 space-y-6">
 
-        {/* Daily Rizq */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <DailyRizqCard />
         </motion.div>
 
-        {/* Pie chart */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <SpendingPieChart data={monthlyStats.byCategory} totalSpent={monthlyStats.totalSpent} title="Spending by Category" />
         </motion.div>
@@ -129,12 +110,13 @@ export default function BudgetPage() {
               {Object.entries(monthlyStats.byBank).sort(([, a], [, b]) => b - a).map(([bank, amount], i) => {
                 const pct = (amount / monthlyStats.totalSpent) * 100;
                 return (
-                  <motion.div key={bank} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 + i * 0.08 }}>
+                  <motion.div key={bank} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.35 + i * 0.08 }}>
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-white/70 text-sm font-medium">{bank}</span>
                       <span className="text-white text-sm font-bold">{formatPKR(amount)}</span>
                     </div>
-                    <div className="h-1.5 bg-white/08 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
                       <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
                         transition={{ duration: 0.9, delay: 0.4 + i * 0.08 }}
                         className="h-full rounded-full"
@@ -147,21 +129,20 @@ export default function BudgetPage() {
           </motion.div>
         )}
 
-        {/* Recent transactions */}
+        {/* Transactions */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="pb-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-extrabold text-white">Recent Transactions</h3>
             {monthlyStats.expenses.length > 5 && (
-              <button onClick={() => setShowAllTransactions(!showAllTransactions)}
-                className="text-[#CCFF00] text-sm font-bold">
-                {showAllTransactions ? "Show Less" : "See All"}
+              <button onClick={() => setShowAll(!showAll)} className="text-[#CCFF00] text-sm font-bold">
+                {showAll ? "Show Less" : "See All"}
               </button>
             )}
           </div>
 
           <div className="space-y-2.5">
             <AnimatePresence mode="popLayout">
-              {(showAllTransactions ? monthlyStats.expenses : monthlyStats.expenses.slice(0, 5)).map((expense, i) => (
+              {visibleExpenses.map((expense, i) => (
                 <motion.div key={expense.id} layout
                   initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -80 }} transition={{ delay: i * 0.04 }}
@@ -184,7 +165,7 @@ export default function BudgetPage() {
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <span className="font-extrabold text-white text-sm">-{formatPKR(Number(expense.amount))}</span>
                     <motion.button whileTap={{ scale: 0.85 }}
-                      onClick={() => deleteExpense(expense.id)}
+                      onClick={() => deleteExpense.mutate(expense.id)}
                       className="opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity text-red-400 text-sm p-1">
                       🗑️
                     </motion.button>
@@ -193,7 +174,7 @@ export default function BudgetPage() {
               ))}
             </AnimatePresence>
 
-            {monthlyStats.expenses.length === 0 && (
+            {!isLoading && monthlyStats.expenses.length === 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-10">
                 <div className="text-5xl mb-3">🎉</div>
                 <p className="text-white/40 font-medium">No expenses yet this month</p>
@@ -204,7 +185,7 @@ export default function BudgetPage() {
         </motion.div>
       </div>
 
-      <BottomNav onExpenseAdded={(e) => addExpense(e)} />
+      <BottomNav onExpenseAdded={(e) => addExpense.mutate(e)} />
     </div>
   );
 }
