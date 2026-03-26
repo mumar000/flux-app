@@ -18,6 +18,9 @@ interface QuickExpenseInputProps {
     category: string;
     rawInput: string;
   }) => void;
+  // Optional external control — when provided, hides internal FAB
+  open?: boolean;
+  onClose?: () => void;
 }
 
 // We will load these from the API instead of hardcoding
@@ -33,8 +36,10 @@ const FALLBACK_CATEGORIES = [
   { id: "Other", emoji: "📦", color: "#BDC3C7" },
 ];
 
-export function QuickExpenseInput({ onExpenseAdded }: QuickExpenseInputProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function QuickExpenseInput({ onExpenseAdded, open: externalOpen, onClose: externalClose }: QuickExpenseInputProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = externalOpen !== undefined;
+  const isOpen = isControlled ? externalOpen : internalOpen;
   const [amount, setAmount] = useState("");
   
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
@@ -93,12 +98,13 @@ export function QuickExpenseInput({ onExpenseAdded }: QuickExpenseInputProps) {
   // Open modal
   const handleOpen = () => {
     resetFields();
-    setIsOpen(true);
+    if (!isControlled) setInternalOpen(true);
   };
 
   // Close modal
   const handleClose = () => {
-    setIsOpen(false);
+    if (isControlled) externalClose?.();
+    else setInternalOpen(false);
     resetFields();
   };
 
@@ -158,8 +164,8 @@ export function QuickExpenseInput({ onExpenseAdded }: QuickExpenseInputProps) {
 
   return (
     <>
-      {/* Floating Action Button */}
-      <motion.button
+      {/* Floating Action Button — hidden when externally controlled (BottomNav owns it) */}
+      {!isControlled && <motion.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={handleOpen}
@@ -170,7 +176,7 @@ export function QuickExpenseInput({ onExpenseAdded }: QuickExpenseInputProps) {
         }}
       >
         +
-      </motion.button>
+      </motion.button>}
 
       {/* Full Screen Modal */}
       <AnimatePresence>

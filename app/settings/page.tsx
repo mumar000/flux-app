@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
+import { BottomNav } from "@/components/mobile/BottomNav";
 
 interface Category {
   id: string;
@@ -326,8 +327,8 @@ export default function SettingsPage() {
         </section>
       </div>
 
-      {/* Bottom Nav Spacer */}
       <div className="h-10" />
+      <BottomNav />
     </div>
   );
 }
