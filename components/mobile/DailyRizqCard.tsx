@@ -67,29 +67,7 @@ export function DailyRizqCard() {
     }
   };
 
-  // Loading skeleton
-  if (isLoading) {
-    return (
-      <div className="relative">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-lg">✨</span>
-          <span className="text-xs font-bold text-white/30 uppercase tracking-widest">
-            Today&apos;s Rizq
-          </span>
-        </div>
-        <div
-          className="rounded-[28px] overflow-hidden animate-pulse"
-          style={{
-            background: "rgba(255, 255, 255, 0.03)",
-            border: "1px solid rgba(255, 255, 255, 0.06)",
-            minHeight: "200px",
-          }}
-        />
-      </div>
-    );
-  }
-
-  if (error || !card) return null;
+  if (error || (!isLoading && !card)) return null;
 
   // Already interacted — don't show on refresh
   if (card.saved || card.dismissed || exited) {
@@ -107,6 +85,40 @@ export function DailyRizqCard() {
           Today&apos;s Rizq
         </span>
       </div>
+
+      <AnimatePresence mode="wait">
+        {/* Skeleton */}
+        {isLoading && (
+          <motion.div
+            key="skeleton"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="rounded-[28px] p-6 overflow-hidden"
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              minHeight: "220px",
+            }}
+          >
+            {/* Badge + emoji row */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="w-24 h-6 rounded-full animate-pulse" style={{ background: "rgba(255,255,255,0.06)" }} />
+              <div className="w-10 h-10 rounded-full animate-pulse" style={{ background: "rgba(255,255,255,0.06)" }} />
+            </div>
+            {/* Title */}
+            <div className="w-3/4 h-5 rounded-xl mb-2 animate-pulse" style={{ background: "rgba(255,255,255,0.06)" }} />
+            <div className="w-1/2 h-5 rounded-xl mb-4 animate-pulse" style={{ background: "rgba(255,255,255,0.04)" }} />
+            {/* Body lines */}
+            <div className="space-y-2">
+              <div className="w-full h-3.5 rounded-lg animate-pulse" style={{ background: "rgba(255,255,255,0.04)" }} />
+              <div className="w-full h-3.5 rounded-lg animate-pulse" style={{ background: "rgba(255,255,255,0.04)" }} />
+              <div className="w-2/3 h-3.5 rounded-lg animate-pulse" style={{ background: "rgba(255,255,255,0.03)" }} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence mode="wait">
         {/* Save confirmation */}

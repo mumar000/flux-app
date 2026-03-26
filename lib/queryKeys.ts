@@ -16,4 +16,7 @@ export const queryKeys = {
     list: () => ["goals", "list"] as const,
     detail: (id: string) => ["goals", "detail", id] as const,
   },
+  dailyRizq: {
+    today: () => ["daily-rizq", "today"] as const,
+  },
 } as const;

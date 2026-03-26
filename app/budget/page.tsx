@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -98,6 +98,15 @@ function SwipeableExpenseRow({ expense, index, onDelete, formatDate }: Swipeable
   );
 }
 
+function Skeleton({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <div
+      className={`animate-pulse rounded-[16px] ${className ?? ""}`}
+      style={{ background: "rgba(255,255,255,0.05)", ...style }}
+    />
+  );
+}
+
 export default function BudgetPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -163,61 +172,92 @@ export default function BudgetPage() {
           <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full opacity-20"
             style={{ background: "radial-gradient(circle, #CCFF00 0%, transparent 70%)" }} />
           <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-1">Total Spent</p>
-          <motion.h2 key={monthlyStats.totalSpent} initial={{ scale: 1.08, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            className="text-4xl font-extrabold text-white">
-            {isLoading ? "—" : formatPKR(monthlyStats.totalSpent)}
-          </motion.h2>
-          <p className="text-white/35 text-sm mt-1">
-            {monthlyStats.expenses.length} transaction{monthlyStats.expenses.length !== 1 ? "s" : ""} this month
-          </p>
+          <AnimatePresence mode="wait">
+            {isLoading ? (
+              <motion.div key="skel-amount" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="w-40 h-10 rounded-2xl mb-2 animate-pulse" style={{ background: "rgba(255,255,255,0.08)" }} />
+                <div className="w-28 h-4 rounded-xl animate-pulse" style={{ background: "rgba(255,255,255,0.05)" }} />
+              </motion.div>
+            ) : (
+              <motion.div key="real-amount" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+                <h2 className="text-4xl font-extrabold text-white">{formatPKR(monthlyStats.totalSpent)}</h2>
+                <p className="text-white/35 text-sm mt-1">
+                  {monthlyStats.expenses.length} transaction{monthlyStats.expenses.length !== 1 ? "s" : ""} this month
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </motion.header>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 space-y-6">
 
+        {/* Daily Rizq — always reserve space */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <DailyRizqCard />
         </motion.div>
 
+        {/* Pie chart — skeleton while loading */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <SpendingPieChart data={monthlyStats.byCategory} totalSpent={monthlyStats.totalSpent} title="Spending by Category" />
+          <AnimatePresence mode="wait">
+            {isLoading ? (
+              <motion.div key="skel-chart" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="rounded-[24px] p-5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <div className="w-36 h-5 rounded-xl mb-5 animate-pulse" style={{ background: "rgba(255,255,255,0.07)" }} />
+                <div className="flex items-center gap-6">
+                  <div className="w-32 h-32 rounded-full animate-pulse flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }} />
+                  <div className="flex-1 space-y-3">
+                    {[80, 60, 70, 50].map((w, i) => (
+                      <div key={i} className="h-3.5 rounded-lg animate-pulse" style={{ width: `${w}%`, background: "rgba(255,255,255,0.05)" }} />
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div key="real-chart" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <SpendingPieChart data={monthlyStats.byCategory} totalSpent={monthlyStats.totalSpent} title="Spending by Category" />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* Bank breakdown */}
-        {Object.keys(monthlyStats.byBank).length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-            className="rounded-[24px] p-5"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <h3 className="text-base font-extrabold text-white mb-4">💳 By Account</h3>
-            <div className="space-y-3">
-              {Object.entries(monthlyStats.byBank).sort(([, a], [, b]) => b - a).map(([bank, amount], i) => {
-                const pct = (amount / monthlyStats.totalSpent) * 100;
-                return (
-                  <motion.div key={bank} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.35 + i * 0.08 }}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-white/70 text-sm font-medium">{bank}</span>
-                      <span className="text-white text-sm font-bold">{formatPKR(amount)}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.9, delay: 0.4 + i * 0.08 }}
-                        className="h-full rounded-full"
-                        style={{ background: "linear-gradient(90deg, #CCFF00, #99CC00)" }} />
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
+        <AnimatePresence>
+          {!isLoading && Object.keys(monthlyStats.byBank).length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+              className="rounded-[24px] p-5"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <h3 className="text-base font-extrabold text-white mb-4">💳 By Account</h3>
+              <div className="space-y-3">
+                {Object.entries(monthlyStats.byBank).sort(([, a], [, b]) => b - a).map(([bank, amount], i) => {
+                  const pct = (amount / monthlyStats.totalSpent) * 100;
+                  return (
+                    <motion.div key={bank} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.08 }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-white/70 text-sm font-medium">{bank}</span>
+                        <span className="text-white text-sm font-bold">{formatPKR(amount)}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.9, delay: i * 0.08 }}
+                          className="h-full rounded-full"
+                          style={{ background: "linear-gradient(90deg, #CCFF00, #99CC00)" }} />
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Transactions */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="pb-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="pb-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-extrabold text-white">Recent Transactions</h3>
-            {monthlyStats.expenses.length > 5 && (
+            {!isLoading && monthlyStats.expenses.length > 5 && (
               <button onClick={() => setShowAll(!showAll)} className="text-[#CCFF00] text-sm font-bold">
                 {showAll ? "Show Less" : "See All"}
               </button>
@@ -226,15 +266,28 @@ export default function BudgetPage() {
 
           <div className="space-y-2.5">
             <AnimatePresence mode="popLayout">
-              {visibleExpenses.map((expense, i) => (
-                <SwipeableExpenseRow
-                  key={expense.id}
-                  expense={expense}
-                  index={i}
-                  onDelete={(id) => deleteExpense.mutate(id)}
-                  formatDate={formatDate}
-                />
-              ))}
+              {isLoading
+                ? [1, 2, 3].map((n) => (
+                    <motion.div key={`skel-tx-${n}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="rounded-[16px] p-4 flex items-center gap-3"
+                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div className="w-11 h-11 rounded-[14px] flex-shrink-0 animate-pulse" style={{ background: "rgba(255,255,255,0.07)" }} />
+                      <div className="flex-1 space-y-2">
+                        <div className="w-3/5 h-3.5 rounded-lg animate-pulse" style={{ background: "rgba(255,255,255,0.07)" }} />
+                        <div className="w-2/5 h-3 rounded-lg animate-pulse" style={{ background: "rgba(255,255,255,0.04)" }} />
+                      </div>
+                      <div className="w-16 h-4 rounded-lg animate-pulse" style={{ background: "rgba(255,255,255,0.06)" }} />
+                    </motion.div>
+                  ))
+                : visibleExpenses.map((expense, i) => (
+                    <SwipeableExpenseRow
+                      key={expense.id}
+                      expense={expense}
+                      index={i}
+                      onDelete={(id) => deleteExpense.mutate(id)}
+                      formatDate={formatDate}
+                    />
+                  ))}
             </AnimatePresence>
 
             {!isLoading && monthlyStats.expenses.length === 0 && (

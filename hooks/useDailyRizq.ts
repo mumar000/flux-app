@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "./useAuth";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
+import { queryKeys } from "@/lib/queryKeys";
 
 export interface DailyRizqCard {
   id: string;
@@ -15,73 +16,63 @@ export interface DailyRizqCard {
   dismissed: boolean;
 }
 
+async function fetchDailyRizq(): Promise<DailyRizqCard> {
+  const res = await fetch("/api/daily-rizq");
+  if (!res.ok) throw new Error("Failed to load daily rizq");
+  return res.json();
+}
+
+async function patchDailyRizq(payload: { id: string; action: "save" | "dismiss" }) {
+  const res = await fetch("/api/daily-rizq", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to update daily rizq");
+  return res.json();
+}
+
 export function useDailyRizq() {
-  const { user } = useAuth();
-  const [card, setCard] = useState<DailyRizqCard | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { status } = useSession();
+  const queryClient = useQueryClient();
 
-  // Fetch today's card
-  useEffect(() => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
+  const query = useQuery({
+    queryKey: queryKeys.dailyRizq.today(),
+    queryFn: fetchDailyRizq,
+    enabled: status === "authenticated",
+    staleTime: 1000 * 60 * 10, // 10 min — card changes once a day
+    retry: 1,
+  });
 
-    const fetchCard = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/daily-rizq");
-        if (!res.ok) throw new Error("Failed to load daily rizq");
-        const data = await res.json();
-        setCard(data);
-      } catch (err: any) {
-        console.error("Daily Rizq fetch error:", err);
-        setError(err.message || "Something went wrong");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const mutation = useMutation({
+    mutationFn: patchDailyRizq,
+    onMutate: async ({ action }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.dailyRizq.today() });
+      const prev = queryClient.getQueryData<DailyRizqCard>(queryKeys.dailyRizq.today());
+      queryClient.setQueryData<DailyRizqCard>(queryKeys.dailyRizq.today(), (old) =>
+        old ? { ...old, saved: action === "save" ? true : old.saved, dismissed: action === "dismiss" ? true : old.dismissed } : old
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(queryKeys.dailyRizq.today(), ctx.prev);
+    },
+  });
 
-    fetchCard();
-  }, [user]);
+  const saveCard = () => {
+    if (!query.data) return;
+    mutation.mutate({ id: query.data.id, action: "save" });
+  };
 
-  // Save card to reflections
-  const saveCard = useCallback(async () => {
-    if (!card) return;
-    setCard((prev) => (prev ? { ...prev, saved: true } : prev));
-    try {
-      await fetch("/api/daily-rizq", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: card.id, action: "save" }),
-      });
-    } catch (err) {
-      console.error("Failed to save card:", err);
-      setCard((prev) => (prev ? { ...prev, saved: false } : prev));
-    }
-  }, [card]);
-
-  // Dismiss card (swipe away)
-  const dismissCard = useCallback(async () => {
-    if (!card) return;
-    setCard((prev) => (prev ? { ...prev, dismissed: true } : prev));
-    try {
-      await fetch("/api/daily-rizq", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: card.id, action: "dismiss" }),
-      });
-    } catch (err) {
-      console.error("Failed to dismiss card:", err);
-    }
-  }, [card]);
+  const dismissCard = () => {
+    if (!query.data) return;
+    mutation.mutate({ id: query.data.id, action: "dismiss" });
+  };
 
   return {
-    card,
-    isLoading,
-    error,
+    card: query.data ?? null,
+    isLoading: query.isLoading,
+    error: query.error ? String(query.error) : null,
     saveCard,
     dismissCard,
   };
