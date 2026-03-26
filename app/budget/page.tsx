@@ -6,14 +6,14 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpensesQuery } from "@/hooks/queries/useExpenses";
 import { useDeleteExpense } from "@/hooks/mutations/useDeleteExpense";
-import { expenseService } from "@/services/expense.service";
+import { expenseService, type Expense } from "@/services/expense.service";
 import { SpendingPieChart } from "@/components/mobile/SpendingPieChart";
 import { DailyRizqCard } from "@/components/mobile/DailyRizqCard";
 import { BottomNav } from "@/components/mobile/BottomNav";
 import { formatPKR, CATEGORY_EMOJIS, CATEGORY_COLORS } from "@/utils/expenseParser";
 
 interface SwipeableExpenseRowProps {
-  expense: ReturnType<typeof expenseService.getMonthlyStats>["expenses"][number];
+  expense: Expense;
   index: number;
   onDelete: (id: string) => void;
   formatDate: (s: string) => string;
@@ -47,9 +47,11 @@ function SwipeableExpenseRow({ expense, index, onDelete, formatDate }: Swipeable
     >
       {/* Red delete background */}
       <motion.div
-        style={{ opacity: deleteOpacity }}
+        style={{
+          opacity: deleteOpacity,
+          background: "linear-gradient(90deg, transparent 0%, rgba(255,59,48,0.15) 30%, rgba(255,59,48,0.95) 100%)",
+        }}
         className="absolute inset-0 flex items-center justify-end pr-5 rounded-[16px]"
-        style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,59,48,0.15) 30%, rgba(255,59,48,0.95) 100%)" }}
       >
         <motion.div style={{ scale: deleteScale }} className="flex flex-col items-center gap-1">
           <span className="text-2xl">🗑️</span>
