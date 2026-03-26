@@ -23,7 +23,7 @@ function SwipeableExpenseRow({ expense, index, onDelete, formatDate }: Swipeable
   const x = useMotionValue(0);
   const deleteOpacity = useTransform(x, [-100, -40, 0], [1, 0.5, 0]);
   const deleteScale = useTransform(x, [-100, -40, 0], [1.1, 0.85, 0.6]);
-  const cardOpacity = useTransform(x, [-120, -80], [0, 1]);
+  const cardOpacity = useTransform(x, [-200, -120, 0], [0, 0.3, 1]);
 
   const handleDragEnd = (_: unknown, info: { offset: { x: number } }) => {
     if (info.offset.x < -80) {
