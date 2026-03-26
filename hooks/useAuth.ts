@@ -1,36 +1,38 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useSession, signIn, signOut as nextAuthSignOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import React from "react";
+import { useSession, signIn, signOut as nextAuthSignOut } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function useAuth() {
   const { data: session, status } = useSession();
-  const loading = status === 'loading';
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const loading = status === "loading";
 
-  // Map NextAuth session to match expected 'user' interface
-  const user = React.useMemo(() => session?.user ? {
-    id: session.user.id,
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image,
-  } : null, [session?.user?.id, session?.user?.email, session?.user?.name, session?.user?.image]);
+  const user = React.useMemo(
+    () =>
+      session?.user
+        ? {
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.name,
+            image: session.user.image,
+          }
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session?.user?.id, session?.user?.email, session?.user?.name, session?.user?.image]
+  );
 
   const signInWithGoogle = async () => {
-    // NextAuth handles the redirect flow
-    await signIn('google', { callbackUrl: '/budget' });
+    await signIn("google", { callbackUrl: "/budget" });
   };
 
   const signOut = async () => {
-    await nextAuthSignOut({ callbackUrl: '/auth' });
+    // Clear all cached server data before signing out so the next
+    // user session starts with a clean slate
+    queryClient.clear();
+    await nextAuthSignOut({ callbackUrl: "/auth" });
   };
 
-  return {
-    user,
-    session,
-    loading,
-    signInWithGoogle,
-    signOut,
-  };
+  return { user, session, loading, status, signInWithGoogle, signOut };
 }
