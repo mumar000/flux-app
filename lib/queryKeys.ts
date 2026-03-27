@@ -19,4 +19,8 @@ export const queryKeys = {
   dailyRizq: {
     today: () => ["daily-rizq", "today"] as const,
   },
+  streaks: {
+    all: ["streaks"] as const,
+    current: () => ["streaks", "current"] as const,
+  },
 } as const;

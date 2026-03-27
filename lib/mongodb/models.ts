@@ -183,3 +183,52 @@ const DailyRizqSchema = new Schema<IDailyRizq>(
 DailyRizqSchema.index({ userId: 1, date: 1 }, { unique: true });
 
 export const DailyRizq = mongoose.models.DailyRizq || mongoose.model<IDailyRizq>("DailyRizq", DailyRizqSchema);
+
+// --- SpendStreak ---
+export interface ISpendStreak extends Document {
+  _id: mongoose.Types.ObjectId;
+  userId: string;
+  dailyBudget: number | null; // null = auto-calculated (30-day avg / 30)
+  noImpulse: {
+    currentCount: number;
+    startDate: string | null;       // YYYY-MM-DD when current streak started
+    lastBrokenDate: string | null;  // YYYY-MM-DD of last break
+    lastBrokenAmount: number | null;
+    lastBrokenDescription: string | null;
+  };
+  underBudget: {
+    currentCount: number;
+    startDate: string | null;
+    lastBrokenDate: string | null;
+    lastBrokenAmount: number | null; // total spend on the day it broke
+  };
+  computedAt: Date; // when streaks were last computed
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const SpendStreakSchema = new Schema<ISpendStreak>(
+  {
+    userId: { type: String, required: true, unique: true },
+    dailyBudget: { type: Number, default: null },
+    noImpulse: {
+      currentCount: { type: Number, default: 0 },
+      startDate: { type: String, default: null },
+      lastBrokenDate: { type: String, default: null },
+      lastBrokenAmount: { type: Number, default: null },
+      lastBrokenDescription: { type: String, default: null },
+    },
+    underBudget: {
+      currentCount: { type: Number, default: 0 },
+      startDate: { type: String, default: null },
+      lastBrokenDate: { type: String, default: null },
+      lastBrokenAmount: { type: Number, default: null },
+    },
+    computedAt: { type: Date, default: () => new Date(0) },
+  },
+  { timestamps: true }
+);
+
+export const SpendStreak =
+  mongoose.models.SpendStreak ||
+  mongoose.model<ISpendStreak>("SpendStreak", SpendStreakSchema);

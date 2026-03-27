@@ -9,6 +9,7 @@ import { useDeleteExpense } from "@/hooks/mutations/useDeleteExpense";
 import { expenseService, type Expense } from "@/services/expense.service";
 import { SpendingPieChart } from "@/components/mobile/SpendingPieChart";
 import { DailyRizqCard } from "@/components/mobile/DailyRizqCard";
+import { SpendStreakCard } from "@/components/mobile/SpendStreakCard";
 import { BottomNav } from "@/components/mobile/BottomNav";
 import { formatPKR, CATEGORY_EMOJIS, CATEGORY_COLORS } from "@/utils/expenseParser";
 
@@ -114,11 +115,9 @@ export default function BudgetPage() {
   const { data: expenses = [], isLoading: expensesLoading, refetch } = useExpensesQuery();
   const deleteExpense = useDeleteExpense();
 
-  // Use `status !== "authenticated"` instead of `authLoading` so we stay in
-  // loading state across the one-render gap where auth just resolved but the
-  // expenses query hasn't started fetching yet (isLoading is false when
-  // enabled:false in TanStack Query).
-  const isLoading = status !== "authenticated" || expensesLoading;
+  // Session is pre-fetched server-side in layout, so status is "authenticated"
+  // on first render. isLoading only waits for the expenses query.
+  const isLoading = expensesLoading;
 
   const [showAll, setShowAll] = useState(false);
 
@@ -202,6 +201,11 @@ export default function BudgetPage() {
         {/* Daily Rizq — always reserve space */}
         <div>
           <DailyRizqCard />
+        </div>
+
+        {/* Spend Streaks */}
+        <div>
+          <SpendStreakCard />
         </div>
 
         {/* Pie chart — skeleton while loading */}
