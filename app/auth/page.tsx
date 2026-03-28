@@ -2,14 +2,31 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
+
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  OAuthSignin: "Could not start Google sign-in. Please try again.",
+  OAuthCallback: "Google sign-in failed. Please try again.",
+  OAuthCreateAccount: "Could not create your account. Please try again.",
+  OAuthAccountNotLinked: "This email is already linked to another account.",
+  Callback: "Authentication callback failed. Please try again.",
+  Default: "Something went wrong. Please try again.",
+};
 
 export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { signInWithGoogle, user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const oauthError = searchParams.get("error");
+    if (oauthError) {
+      setError(OAUTH_ERROR_MESSAGES[oauthError] ?? OAUTH_ERROR_MESSAGES.Default);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (user) {
