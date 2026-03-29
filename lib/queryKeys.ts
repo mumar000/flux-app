@@ -23,4 +23,10 @@ export const queryKeys = {
     all: ["streaks"] as const,
     current: () => ["streaks", "current"] as const,
   },
+  comparisons: {
+    all: ["comparisons"] as const,
+    list: () => ["comparisons", "list"] as const,
+    insights: (amount: number, category?: string) =>
+      ["comparisons", "insights", amount, category] as const,
+  },
 } as const;

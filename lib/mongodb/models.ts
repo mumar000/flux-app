@@ -232,3 +232,35 @@ const SpendStreakSchema = new Schema<ISpendStreak>(
 export const SpendStreak =
   mongoose.models.SpendStreak ||
   mongoose.model<ISpendStreak>("SpendStreak", SpendStreakSchema);
+
+// --- ComparisonItem ---
+export interface IComparisonItem extends Document {
+  _id: mongoose.Types.ObjectId;
+  userId: string;
+  label: string;       // "Concert Ticket", "Monthly Internet Bill"
+  amount: number;      // PKR value of this reference item
+  emoji: string;
+  enabled: boolean;    // user can toggle individual items on/off
+  is_default: boolean; // seeded defaults vs user-created
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const ComparisonItemSchema = new Schema<IComparisonItem>(
+  {
+    userId: { type: String, required: true },
+    label: { type: String, required: true },
+    amount: { type: Number, required: true },
+    emoji: { type: String, required: true },
+    enabled: { type: Boolean, default: true },
+    is_default: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
+// One label per user (case-insensitive enforced at app level)
+ComparisonItemSchema.index({ userId: 1, label: 1 });
+
+export const ComparisonItem =
+  mongoose.models.ComparisonItem ||
+  mongoose.model<IComparisonItem>("ComparisonItem", ComparisonItemSchema);
