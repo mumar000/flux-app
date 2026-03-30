@@ -10,6 +10,7 @@ import { useAddCategory } from "@/hooks/mutations/useAddCategory";
 import { useDeleteCategory } from "@/hooks/mutations/useDeleteCategory";
 import { useAddBank } from "@/hooks/mutations/useAddBank";
 import { useDeleteBank } from "@/hooks/mutations/useDeleteBank";
+import { ComparisonItemsManager } from "@/components/mobile/ComparisonItemsManager";
 import { BottomNav } from "@/components/mobile/BottomNav";
 
 export default function SettingsPage() {
@@ -267,6 +268,10 @@ export default function SettingsPage() {
           </section>
 
         </div>
+
+        {/* Comparison Items — full width below the two-column grid */}
+        <ComparisonItemsManager />
+
       </div>
 
       <BottomNav />
