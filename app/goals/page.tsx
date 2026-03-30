@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "next/navigation";
 import { useGoals } from "@/hooks/queries/useGoals";
 import { useContributeGoal } from "@/hooks/mutations/useContributeGoal";
 import { useDeleteGoal } from "@/hooks/mutations/useDeleteGoal";
@@ -38,27 +37,6 @@ function Ring({ pct, color, size = 64, stroke = 5 }: { pct: number; color: strin
         style={{ filter: `drop-shadow(0 0 6px ${color}80)` }}
       />
     </svg>
-  );
-}
-
-// ── Confetti ───────────────────────────────────────────────────────────────────
-function Confetti({ color, active }: { color: string; active: boolean }) {
-  if (!active) return null;
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[28px]">
-      {Array.from({ length: 14 }).map((_, i) => {
-        const angle = (i / 14) * 360;
-        const d = 50 + (i % 3) * 18;
-        return (
-          <motion.div key={i} className="absolute w-2 h-2 rounded-full"
-            style={{ background: i % 2 ? color : "#fff", top: "50%", left: "50%", marginTop: -4, marginLeft: -4 }}
-            initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-            animate={{ x: Math.cos((angle * Math.PI) / 180) * d, y: Math.sin((angle * Math.PI) / 180) * d, opacity: 0, scale: 0 }}
-            transition={{ duration: 0.75, ease: "easeOut", delay: i * 0.025 }}
-          />
-        );
-      })}
-    </div>
   );
 }
 
@@ -155,18 +133,7 @@ function GoalRow({ goal, index }: { goal: Goal; index: number }) {
   const days = goal.deadline ? daysLeft(goal.deadline) : null;
   const perDay = days && days > 0 ? Math.ceil(remaining / days) : null;
   const [sheet, setSheet] = useState(false);
-  const [burst, setBurst] = useState(false);
-  const prevPct = useRef(0);
   const deleteGoal = useDeleteGoal();
-
-  useEffect(() => {
-    const milestones = [25, 50, 75, 100];
-    if (milestones.some(m => prevPct.current < m && pct >= m)) {
-      setBurst(true);
-      setTimeout(() => setBurst(false), 900);
-    }
-    prevPct.current = pct;
-  }, [pct]);
 
   // Swipe left to delete
   const x = useMotionValue(0);
@@ -192,20 +159,19 @@ function GoalRow({ goal, index }: { goal: Goal; index: number }) {
         {/* Card */}
         <motion.div
           drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={{ left: 0.45, right: 0 }}
-          onDragEnd={handleDrag} style={{ x: cardX }}
+          onDragEnd={handleDrag}
           initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 260, damping: 26, delay: index * 0.07 }}
           onClick={() => !goal.completed && setSheet(true)}
           className="relative rounded-[28px] overflow-hidden cursor-pointer"
           style={{
+            x: cardX,
             background: goal.completed
               ? `linear-gradient(135deg, ${color}12, ${color}04)`
               : "rgba(255,255,255,0.04)",
             border: `1px solid ${goal.completed ? color + "28" : "rgba(255,255,255,0.08)"}`,
           }}
         >
-          <Confetti color={color} active={burst} />
-
           {/* Accent top bar */}
           <motion.div className="h-[3px] w-full"
             style={{ background: `linear-gradient(90deg, ${color}, ${color}00)` }}
@@ -301,13 +267,8 @@ function GoalRow({ goal, index }: { goal: Goal; index: number }) {
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function GoalsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const { data: goals = [], isLoading } = useGoals();
+  const { data: goals = [] } = useGoals();
   const [showCreate, setShowCreate] = useState(false);
-
-  useEffect(() => {
-    if (!authLoading && !user) router.push("/auth");
-  }, [user, authLoading, router]);
 
   if (!user && !authLoading) return null;
 

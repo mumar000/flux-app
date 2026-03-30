@@ -3,8 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import { Providers } from "@/app/providers";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,20 +27,18 @@ export const metadata: Metadata = {
   themeColor: "#1A0A2E",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getServerSession(authOptions);
-
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          <AuthProvider session={session}>{children}</AuthProvider>
+          <AuthProvider>{children}</AuthProvider>
         </Providers>
       </body>
     </html>

@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpensesQuery } from "@/hooks/queries/useExpenses";
 import { useDeleteExpense } from "@/hooks/mutations/useDeleteExpense";
@@ -99,18 +98,8 @@ function SwipeableExpenseRow({ expense, index, onDelete, formatDate }: Swipeable
   );
 }
 
-function Skeleton({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <div
-      className={`animate-pulse rounded-[16px] ${className ?? ""}`}
-      style={{ background: "rgba(255,255,255,0.05)", ...style }}
-    />
-  );
-}
-
 export default function BudgetPage() {
-  const { user, loading: authLoading, status } = useAuth();
-  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
 
   const { data: expenses = [], isLoading: expensesLoading, refetch } = useExpensesQuery();
   const deleteExpense = useDeleteExpense();
@@ -120,10 +109,6 @@ export default function BudgetPage() {
   const isLoading = expensesLoading;
 
   const [showAll, setShowAll] = useState(false);
-
-  useEffect(() => {
-    if (!authLoading && !user) router.push("/auth");
-  }, [user, authLoading, router]);
 
   const monthlyStats = useMemo(
     () => expenseService.getMonthlyStats(expenses),

@@ -78,7 +78,7 @@ export function BottomNav() {
           {NAV_ITEMS.slice(0, 2).map(({ label, href, Icon }) => {
             const active = pathname === href;
             return (
-              <Link key={href} href={href} className="flex flex-col items-center gap-1 flex-1 py-1 relative">
+              <Link key={href} href={href} prefetch className="flex flex-col items-center gap-1 flex-1 py-1 relative">
                 <motion.div animate={{ scale: active ? 1.1 : 1 }} transition={{ type: "spring", stiffness: 500, damping: 25 }}>
                   <Icon filled={active} />
                 </motion.div>
@@ -122,7 +122,7 @@ export function BottomNav() {
           {NAV_ITEMS.slice(2).map(({ label, href, Icon }) => {
             const active = pathname === href;
             return (
-              <Link key={href} href={href} className="flex flex-col items-center gap-1 flex-1 py-1 relative">
+              <Link key={href} href={href} prefetch className="flex flex-col items-center gap-1 flex-1 py-1 relative">
                 <motion.div animate={{ scale: active ? 1.1 : 1 }} transition={{ type: "spring", stiffness: 500, damping: 25 }}>
                   <Icon filled={active} />
                 </motion.div>

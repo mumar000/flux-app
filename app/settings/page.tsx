@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories } from "@/hooks/queries/useCategories";
 import { useBanks } from "@/hooks/queries/useBanks";
@@ -15,7 +14,6 @@ import { BottomNav } from "@/components/mobile/BottomNav";
 
 export default function SettingsPage() {
   const { user, signOut, loading: authLoading } = useAuth();
-  const router = useRouter();
 
   const { data: categories = [] } = useCategories();
   const { data: banks = [] } = useBanks();
@@ -28,10 +26,6 @@ export default function SettingsPage() {
   const [newCatName, setNewCatName] = useState("");
   const [newCatEmoji, setNewCatEmoji] = useState("📦");
   const [newBankName, setNewBankName] = useState("");
-
-  useEffect(() => {
-    if (!authLoading && !user) router.push("/auth");
-  }, [user, authLoading, router]);
 
   if (!user && !authLoading) return null;
 

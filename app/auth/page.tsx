@@ -5,6 +5,18 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
+const FLOATING_EMOJIS = ["💰", "🚀", "💳", "📈", "💎", "💸", "🔥", "✨"];
+const FLOATING_EMOJI_POSITIONS = [
+  { x: "12%", y: "10%", driftX: -12, driftY: -72, duration: 16 },
+  { x: "74%", y: "18%", driftX: 18, driftY: -96, duration: 18 },
+  { x: "24%", y: "66%", driftX: -16, driftY: -64, duration: 14 },
+  { x: "84%", y: "72%", driftX: 14, driftY: -78, duration: 20 },
+  { x: "48%", y: "12%", driftX: 10, driftY: -54, duration: 15 },
+  { x: "8%", y: "82%", driftX: 22, driftY: -88, duration: 19 },
+  { x: "58%", y: "78%", driftX: -18, driftY: -70, duration: 17 },
+  { x: "92%", y: "42%", driftX: -10, driftY: -60, duration: 13 },
+];
+
 export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -13,7 +25,7 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (user) {
-      router.push("/budget");
+      router.replace("/budget");
     }
   }, [user, router]);
 
@@ -30,27 +42,25 @@ export default function AuthPage() {
     }
   };
 
-  const floatingEmojis = ["💰", "🚀", "💳", "📈", "💎", "💸", "🔥", "✨"];
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[#0A0A0C]">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {floatingEmojis.map((emoji, i) => (
+        {FLOATING_EMOJIS.map((emoji, i) => (
           <motion.div
             key={i}
             className="absolute text-4xl opacity-20"
             initial={{
-              x: Math.random() * 100 + "%",
-              y: Math.random() * 100 + "%",
+              x: FLOATING_EMOJI_POSITIONS[i].x,
+              y: FLOATING_EMOJI_POSITIONS[i].y,
             }}
             animate={{
-              y: [null, Math.random() * -100 - 50, null],
-              x: [null, Math.random() * 50 - 25, null],
+              y: [null, FLOATING_EMOJI_POSITIONS[i].driftY, null],
+              x: [null, FLOATING_EMOJI_POSITIONS[i].driftX, null],
               rotate: [0, 360],
             }}
             transition={{
-              duration: Math.random() * 10 + 10,
+              duration: FLOATING_EMOJI_POSITIONS[i].duration,
               repeat: Infinity,
               ease: "linear",
             }}
