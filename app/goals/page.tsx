@@ -185,7 +185,7 @@ function GoalRow({ goal, index }: { goal: Goal; index: number }) {
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3 flex-1 min-w-0">
                 <motion.span className="text-3xl leading-none flex-shrink-0"
-                  animate={burst ? { scale: [1, 1.5, 1], rotate: [0, -15, 15, 0] } : {}}
+                  animate={{ scale: 1, rotate: 0 }}
                   transition={{ duration: 0.55 }}>
                   {goal.emoji}
                 </motion.span>
