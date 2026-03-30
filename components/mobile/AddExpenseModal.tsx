@@ -1,107 +1,198 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Dialog from "@radix-ui/react-dialog";
 import clsx from "clsx";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAddExpense } from "@/hooks/mutations/useAddExpense";
+import { queryKeys } from "@/lib/queryKeys";
+import { comparisonService, type ComparisonInsight } from "@/services/comparison.service";
+import { CouldveBeenInsightCard } from "@/components/mobile/CouldveBeenInsightCard";
+import type { Expense } from "@/services/expense.service";
 
-// --- Types ---
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 interface Category {
   id: string;
   name: string;
   emoji: string;
-  color: string; // Used for glow effects
+  color: string;
 }
 
-const defaultCategories: Category[] = [
-  { id: "1", name: "Food", emoji: "🍔", color: "#FF6B6B" }, // Coral
-  { id: "2", name: "Transport", emoji: "🛸", color: "#00F0FF" }, // Cyan
-  { id: "3", name: "Fashion", emoji: "👟", color: "#FFE66D" }, // Yellow
-  { id: "4", name: "Gaming", emoji: "👾", color: "#B983FF" }, // Purple
-  { id: "5", name: "Tech", emoji: "🔋", color: "#00F0FF" }, // Cyan
-  { id: "6", name: "Wellness", emoji: "🧘", color: "#95E1D3" }, // Teal
-  { id: "7", name: "Social", emoji: "🥂", color: "#FF8B94" }, // Pink
-  { id: "8", name: "Random", emoji: "🎲", color: "#FFFFFF" }, // White
+const DEFAULT_CATEGORIES: Category[] = [
+  { id: "1", name: "Food", emoji: "🍔", color: "#FF6B6B" },
+  { id: "2", name: "Transport", emoji: "🚕", color: "#4ECDC4" },
+  { id: "3", name: "Shopping", emoji: "🛍️", color: "#FFE66D" },
+  { id: "4", name: "Bills", emoji: "📄", color: "#95A5A6" },
+  { id: "5", name: "Entertainment", emoji: "🎬", color: "#9B59B6" },
+  { id: "6", name: "Health", emoji: "💊", color: "#2ECC71" },
+  { id: "7", name: "Education", emoji: "📚", color: "#3498DB" },
+  { id: "8", name: "Other", emoji: "📦", color: "#BDC3C7" },
 ];
+
+type ModalStep = "input" | "insights";
 
 interface AddExpenseModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
-  const [amount, setAmount] = useState("");
-  const [categories, setCategories] = useState<Category[]>(defaultCategories);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
-    null,
-  );
-  const [description, setDescription] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function currentMonthPrefix(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
 
-  // Fetch dynamic categories
+// ---------------------------------------------------------------------------
+// AddExpenseModal
+// ---------------------------------------------------------------------------
+export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
+  const queryClient = useQueryClient();
+  const addExpense = useAddExpense();
+
+  const [step, setStep] = useState<ModalStep>("input");
+  const [amount, setAmount] = useState("");
+  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [description, setDescription] = useState("");
+  const [shake, setShake] = useState(false);
+
+  // Insight state
+  const [loggedAmount, setLoggedAmount] = useState(0);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insights, setInsights] = useState<ComparisonInsight[]>([]);
+  const [hasComparisonItems, setHasComparisonItems] = useState(true);
+
+  // Auto-close timer ref
+  const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch categories dynamically when modal opens
   useEffect(() => {
-    if (open) {
-      fetch("/api/categories")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data.length > 0) {
-            const mapped = data.map((d: any) => ({
-              id: d.id || d.name,
+    if (!open) return;
+    fetch("/api/categories")
+      .then((res) => res.json())
+      .then((data: unknown) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setCategories(
+            data.map((d: any) => ({
+              id: d.id ?? d.name,
               name: d.name,
-              emoji: d.emoji || "📦",
-              color: d.color || "#BDC3C7",
-            }));
-            setCategories(mapped);
-          }
-        })
-        .catch((err) => console.error(err));
+              emoji: d.emoji ?? "📦",
+              color: d.color ?? "#BDC3C7",
+            }))
+          );
+        }
+      })
+      .catch(() => {/* keep defaults */});
+  }, [open]);
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!open) {
+      setStep("input");
+      setAmount("");
+      setSelectedCategory(null);
+      setDescription("");
+      setInsights([]);
+      setInsightsLoading(false);
+      if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current);
     }
   }, [open]);
 
-  // Shake animation state
-  const [shake, setShake] = useState(false);
+  // Cleanup on unmount
+  useEffect(() => () => {
+    if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current);
+  }, []);
 
-  // --- Numpad Logic ---
+  // ---------------------------------------------------------------------------
+  // Numpad handlers
+  // ---------------------------------------------------------------------------
   const handleNumPress = (num: string) => {
-    if (amount.includes(".") && num === ".") return;
-    if (amount.length > 7) return; // Prevent crazy lengths
-    // Prevent multiple leading zeros
-    if (amount === "0" && num !== ".") {
-      setAmount(num);
-      return;
-    }
+    if (num === "." && amount.includes(".")) return;
+    if (amount.length >= 8) return;
+    if (amount === "0" && num !== ".") { setAmount(num); return; }
     setAmount((prev) => prev + num);
   };
 
-  const handleBackspace = () => {
-    setAmount((prev) => prev.slice(0, -1));
-  };
+  const handleBackspace = () => setAmount((prev) => prev.slice(0, -1));
 
-  // --- Submit Logic ---
+  // ---------------------------------------------------------------------------
+  // Submit
+  // ---------------------------------------------------------------------------
   const handleSubmit = async () => {
-    if (!amount || !selectedCategory) {
+    const numericAmount = parseFloat(amount);
+    if (!numericAmount || !selectedCategory) {
       setShake(true);
       setTimeout(() => setShake(false), 500);
       return;
     }
 
-    setIsSubmitting(true);
+    // Compute monthly category total from cache (avoids extra server round-trip)
+    const cached = queryClient.getQueryData<Expense[]>(queryKeys.expenses.list()) ?? [];
+    const monthPrefix = currentMonthPrefix();
+    const monthlyTotal = cached
+      .filter(
+        (e) =>
+          e.category === selectedCategory.name &&
+          (e.date ?? e.created_at ?? "").startsWith(monthPrefix)
+      )
+      .reduce((sum, e) => sum + Number(e.amount), 0) + numericAmount;
 
-    // TODO: Backend API Logic Here
-    setTimeout(() => {
-      console.log({ amount, category: selectedCategory });
-      setAmount("");
-      setSelectedCategory(null);
-      setDescription("");
-      setIsSubmitting(false);
-      onClose();
-    }, 800);
+    // Fire expense creation
+    addExpense.mutate(
+      {
+        amount: numericAmount,
+        description: description.trim() || selectedCategory.name,
+        bankAccount: "Cash",
+        category: selectedCategory.name,
+        rawInput: description.trim() || `${numericAmount} ${selectedCategory.name}`,
+      },
+      {
+        onSuccess: async () => {
+          setLoggedAmount(numericAmount);
+          setStep("insights");
+          setInsightsLoading(true);
+
+          try {
+            const result = await comparisonService.calculate({
+              amount: numericAmount,
+              category: selectedCategory!.name,
+              monthlyTotalForCategory: monthlyTotal,
+            });
+            setInsights(result.insights);
+            setHasComparisonItems(result.hasComparisonItems);
+          } catch {
+            setInsights([]);
+          } finally {
+            setInsightsLoading(false);
+          }
+
+          // Auto-close after 5 s if user doesn't interact
+          autoCloseTimer.current = setTimeout(onClose, 5000);
+        },
+        onError: () => {
+          // Stay on input step so user can retry
+        },
+      }
+    );
   };
 
+  const handleInsightsDismiss = () => {
+    if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current);
+    onClose();
+  };
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
-    <Dialog.Root open={open} onOpenChange={onClose}>
+    <Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
       <Dialog.Portal>
-        {/* Backdrop: Deep Void with Blur */}
+        {/* Backdrop */}
         <Dialog.Overlay asChild>
           <motion.div
             initial={{ opacity: 0 }}
@@ -117,191 +208,227 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
             animate={{ y: 0 }}
             exit={{ y: "110%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 left-0 right-0 z-50 h-[92vh] flex flex-col bg-[#121216] border-t border-white/10 rounded-t-[40px] shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
+            className="fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-[#121216] border-t border-white/10 rounded-t-[40px] shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
+            style={{ maxHeight: "92vh" }}
           >
-            {/* 1. Header & Handle */}
-            <div className="flex justify-center pt-4 pb-2" onClick={onClose}>
+            {/* Drag handle */}
+            <div className="flex justify-center pt-4 pb-2 flex-shrink-0" onClick={onClose}>
               <div className="w-16 h-1.5 bg-white/10 rounded-full" />
             </div>
 
-            <div className="flex-1 flex flex-col px-6 pb-8">
-              {/* 2. The Big Amount Display */}
-              <motion.div
-                className={clsx(
-                  "flex flex-col items-center justify-center flex-1 min-h-[120px]",
-                  shake && "animate-shake", // Add custom CSS animation for shake
-                )}
-                animate={shake ? { x: [-5, 5, -5, 5, 0] } : {}}
-              >
-                <div className="text-white/40 text-sm font-medium tracking-widest uppercase mb-2">
-                  Total Spent
-                </div>
-                <div className="relative flex items-center">
-                  <span className="text-4xl text-white/30 font-light mr-2">
-                    $
-                  </span>
-                  <span
+            <AnimatePresence mode="wait">
+              {/* ── STEP 1: Expense input ────────────────────────── */}
+              {step === "input" && (
+                <motion.div
+                  key="input"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.18 }}
+                  className="flex-1 flex flex-col px-6 pb-8 overflow-y-auto"
+                >
+                  {/* Amount display */}
+                  <motion.div
+                    className="flex flex-col items-center justify-center py-6"
+                    animate={shake ? { x: [-6, 6, -6, 6, 0] } : {}}
+                    transition={{ duration: 0.35 }}
+                  >
+                    <div className="text-white/40 text-[11px] font-bold tracking-widest uppercase mb-2">
+                      Amount (PKR)
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-white/30 text-3xl font-light">₨</span>
+                      <span
+                        className={clsx(
+                          "text-6xl font-extrabold tracking-tighter transition-colors duration-200",
+                          amount ? "text-white" : "text-white/10"
+                        )}
+                      >
+                        {amount || "0"}
+                      </span>
+                    </div>
+                  </motion.div>
+
+                  {/* Category picker */}
+                  <div className="mb-5">
+                    <div className="flex gap-3 overflow-x-auto pb-3 no-scrollbar">
+                      {categories.map((cat) => {
+                        const isSelected = selectedCategory?.id === cat.id;
+                        return (
+                          <motion.button
+                            key={cat.id}
+                            whileTap={{ scale: 0.88 }}
+                            onClick={() => setSelectedCategory(cat)}
+                            className="flex flex-col items-center justify-center min-w-[68px] h-[68px] rounded-2xl border transition-all duration-200 flex-shrink-0"
+                            style={{
+                              background: isSelected ? `${cat.color}15` : "rgba(255,255,255,0.04)",
+                              borderColor: isSelected ? `${cat.color}60` : "rgba(255,255,255,0.07)",
+                              boxShadow: isSelected ? `0 0 16px ${cat.color}30` : "none",
+                            }}
+                          >
+                            <span className="text-2xl mb-0.5">{cat.emoji}</span>
+                            <span
+                              className="text-[9px] font-bold uppercase tracking-wide"
+                              style={{ color: isSelected ? cat.color : "rgba(255,255,255,0.30)" }}
+                            >
+                              {cat.name}
+                            </span>
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Numpad */}
+                  <div className="grid grid-cols-3 gap-2.5 mb-5">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                      <motion.button
+                        key={num}
+                        onClick={() => handleNumPress(num.toString())}
+                        whileTap={{ scale: 0.88, backgroundColor: "rgba(204,255,0,0.1)" }}
+                        transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                        className="h-[72px] rounded-[22px] bg-white/[0.05] border border-white/[0.08] flex items-center justify-center"
+                      >
+                        <span className="text-2xl font-bold text-white">{num}</span>
+                      </motion.button>
+                    ))}
+
+                    {/* . */}
+                    <motion.button
+                      onClick={() => handleNumPress(".")}
+                      whileTap={{ scale: 0.88 }}
+                      className="h-[72px] rounded-[22px] flex items-center justify-center"
+                    >
+                      <span className="text-3xl font-black text-white/40 leading-none pb-2">.</span>
+                    </motion.button>
+
+                    {/* 0 */}
+                    <motion.button
+                      onClick={() => handleNumPress("0")}
+                      whileTap={{ scale: 0.88, backgroundColor: "rgba(204,255,0,0.1)" }}
+                      className="h-[72px] rounded-[22px] bg-white/[0.05] border border-white/[0.08] flex items-center justify-center"
+                    >
+                      <span className="text-2xl font-bold text-white">0</span>
+                    </motion.button>
+
+                    {/* ⌫ */}
+                    <motion.button
+                      onClick={handleBackspace}
+                      whileTap={{ scale: 0.88, x: -2 }}
+                      className="h-[72px] rounded-[22px] flex items-center justify-center group"
+                    >
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        className="text-white/30 group-active:text-[#FF6B6B] transition-colors">
+                        <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" />
+                        <line x1="18" y1="9" x2="12" y2="15" />
+                        <line x1="12" y1="9" x2="18" y2="15" />
+                      </svg>
+                    </motion.button>
+                  </div>
+
+                  {/* Note field */}
+                  <input
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
+                    placeholder="Add a note... (optional)"
+                    className="w-full bg-transparent text-center text-white/60 placeholder:text-white/20 border-b border-white/10 pb-2 mb-5 outline-none focus:border-[#CCFF00] transition-colors text-sm"
+                  />
+
+                  {/* Submit */}
+                  <motion.button
+                    onClick={handleSubmit}
+                    disabled={!amount || !selectedCategory || addExpense.isPending}
+                    whileTap={{ scale: 0.97 }}
                     className={clsx(
-                      "text-6xl font-bold tracking-tighter transition-colors duration-300",
-                      amount ? "text-white" : "text-white/10",
+                      "w-full py-5 rounded-2xl font-extrabold text-base uppercase tracking-wider transition-all",
+                      !amount || !selectedCategory
+                        ? "bg-white/8 text-white/20 cursor-not-allowed"
+                        : "bg-[#CCFF00] text-black shadow-[0_0_28px_rgba(204,255,0,0.25)]"
                     )}
                   >
-                    {amount || "0"}
-                  </span>
-                  <span className="text-6xl text-white animate-pulse">|</span>
-                </div>
-              </motion.div>
-
-              {/* 3. Horizontal Scroll Categories (The "Vibe" Picker) */}
-              <div className="mb-6">
-                <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x">
-                  {categories.map((cat) => {
-                    const isSelected = selectedCategory?.id === cat.id;
-                    return (
-                      <motion.button
-                        key={cat.id}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => setSelectedCategory(cat)}
-                        className={clsx(
-                          "flex flex-col items-center justify-center min-w-[72px] h-[72px] rounded-2xl border snap-center transition-all duration-300",
-                          isSelected
-                            ? "bg-white/10 border-transparent shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-                            : "bg-transparent border-white/5 hover:bg-white/5",
-                        )}
-                        style={{
-                          borderColor: isSelected ? cat.color : undefined,
-                          boxShadow: isSelected
-                            ? `0 0 20px ${cat.color}40`
-                            : undefined,
-                        }}
-                      >
-                        <span className="text-3xl mb-1 filter drop-shadow-md">
-                          {cat.emoji}
-                        </span>
-                      </motion.button>
-                    );
-                  })}
-                </div>
-                {selectedCategory && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center text-sm font-medium tracking-widest uppercase"
-                    style={{ color: selectedCategory.color }}
-                  >
-                    {selectedCategory.name}
-                  </motion.div>
-                )}
-              </div>
-
-              {/* 4. Giant Numpad (No Native Keyboard) */}
-              {/* 5. The "Aerogel" Numpad */}
-              <div className="grid grid-cols-3 gap-3 mb-8 px-2">
-                {/* Numbers 1-9 */}
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                  <motion.button
-                    key={num}
-                    onClick={() => handleNumPress(num.toString())}
-                    whileHover={{
-                      backgroundColor: "rgba(255, 255, 255, 0.08)",
-                      boxShadow: "0 0 15px rgba(255, 255, 255, 0.05)",
-                    }}
-                    whileTap={{
-                      scale: 0.9,
-                      backgroundColor: "rgba(204, 255, 0, 0.1)",
-                    }}
-                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                    className="h-20 rounded-[24px] bg-white/5 border-t border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] backdrop-blur-md flex items-center justify-center group relative overflow-hidden"
-                  >
-                    <span className="text-3xl font-medium text-white group-hover:text-white transition-colors z-10 font-['Space_Grotesk']">
-                      {num}
-                    </span>
-
-                    {/* Subtle internal gradient blob that moves on hover could go here, keeping it clean for now */}
+                    {addExpense.isPending ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <motion.span
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                        >
+                          ⏳
+                        </motion.span>
+                        Logging...
+                      </span>
+                    ) : (
+                      "Log Expense"
+                    )}
                   </motion.button>
-                ))}
 
-                {/* Decimal Point */}
-                <motion.button
-                  onClick={() => handleNumPress(".")}
-                  whileTap={{ scale: 0.9 }}
-                  className="h-20 rounded-[24px] bg-transparent flex items-center justify-center text-white/50 hover:text-white transition-colors"
-                >
-                  <span className="text-4xl font-bold pb-4">.</span>
-                </motion.button>
+                  {addExpense.isError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-center text-xs font-semibold mt-3"
+                      style={{ color: "#FF6B6B" }}
+                    >
+                      Could not save. Please try again.
+                    </motion.p>
+                  )}
+                </motion.div>
+              )}
 
-                {/* Number 0 */}
-                <motion.button
-                  onClick={() => handleNumPress("0")}
-                  whileHover={{
-                    backgroundColor: "rgba(255, 255, 255, 0.08)",
-                    boxShadow: "0 0 15px rgba(255, 255, 255, 0.05)",
-                  }}
-                  whileTap={{
-                    scale: 0.9,
-                    backgroundColor: "rgba(204, 255, 0, 0.1)",
-                  }}
-                  className="h-20 rounded-[24px] bg-white/5 border-t border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] backdrop-blur-md flex items-center justify-center"
+              {/* ── STEP 2: Success + insights ───────────────────── */}
+              {step === "insights" && (
+                <motion.div
+                  key="insights"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 340, damping: 28 }}
+                  className="flex-1 flex flex-col px-5 pb-10 pt-2 overflow-y-auto"
                 >
-                  <span className="text-3xl font-medium text-white font-['Space_Grotesk']">
-                    0
-                  </span>
-                </motion.button>
-
-                {/* Backspace (Destructive Action) */}
-                <motion.button
-                  onClick={handleBackspace}
-                  whileTap={{ scale: 0.9, x: -2 }}
-                  className="h-20 rounded-[24px] flex items-center justify-center text-white/40 hover:text-[#FF6B6B] transition-colors group"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="32"
-                    height="32"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="group-hover:drop-shadow-[0_0_8px_rgba(255,107,107,0.5)] transition-all"
+                  {/* Success banner */}
+                  <motion.div
+                    initial={{ scale: 0.85, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 20, delay: 0.05 }}
+                    className="flex flex-col items-center py-6"
                   >
-                    <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path>
-                    <line x1="18" y1="9" x2="12" y2="15"></line>
-                    <line x1="12" y1="9" x2="18" y2="15"></line>
-                  </svg>
-                </motion.button>
-              </div>
-              {/* 5. Note Input (Optional/Minimal) */}
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Add a note..."
-                className="w-full bg-transparent text-center text-white/60 placeholder:text-white/20 border-b border-white/10 pb-2 mb-6 focus:outline-none focus:border-[#CCFF00] transition-colors"
-              />
+                    <motion.span
+                      animate={{ rotate: [0, -12, 12, -8, 8, 0] }}
+                      transition={{ duration: 0.55, delay: 0.1 }}
+                      className="text-5xl mb-3"
+                    >
+                      ✅
+                    </motion.span>
+                    <p className="text-white font-extrabold text-xl">Logged!</p>
+                    <p className="text-white/40 text-sm font-medium mt-1">
+                      PKR {Math.round(loggedAmount).toLocaleString("en-PK")} added
+                    </p>
+                  </motion.div>
 
-              {/* 6. Action Button (The "Send it" button) */}
-              <motion.button
-                onClick={handleSubmit}
-                disabled={!amount || !selectedCategory || isSubmitting}
-                whileTap={{ scale: 0.98 }}
-                className={clsx(
-                  "w-full py-5 rounded-2xl font-bold text-black text-lg uppercase tracking-wide transition-all shadow-[0_0_30px_rgba(204,255,0,0.2)]",
-                  !amount || !selectedCategory
-                    ? "bg-white/10 text-white/20 cursor-not-allowed"
-                    : "bg-[#CCFF00] hover:bg-[#b3e600] cursor-pointer", // Rizqly Neon Lime
-                )}
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="animate-spin">⏳</span> Processing...
-                  </span>
-                ) : (
-                  "Confirm Drop"
-                )}
-              </motion.button>
-            </div>
+                  {/* Insight card */}
+                  <CouldveBeenInsightCard
+                    amount={loggedAmount}
+                    isLoading={insightsLoading}
+                    insights={insights}
+                    hasComparisonItems={hasComparisonItems}
+                    onDismiss={handleInsightsDismiss}
+                  />
+
+                  {/* Auto-close hint */}
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.8 }}
+                    className="text-center text-[11px] font-medium mt-4"
+                    style={{ color: "rgba(255,255,255,0.20)" }}
+                  >
+                    Closes automatically in 5s
+                  </motion.p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </Dialog.Content>
       </Dialog.Portal>
