@@ -41,6 +41,7 @@ After this feature is shipped, Rizqly becomes a more complete personal finance t
 - dashboard metrics can show net cash flow, not just spending
 - receipt scanning can classify documents into income or expense automatically
 - bank balance changes become easier to reconcile
+- per-bank balance = income credited to that account minus expenses paid from it
 
 ---
 
@@ -60,26 +61,45 @@ After this feature is shipped, Rizqly becomes a more complete personal finance t
    - transaction type = `income`
    - date = today
    - account = last used account
-   - category suggestions = Salary, Transfer, Cash Deposit, Refund, Gift, Freelance, Savings Return, Other
-5. User enters amount and optional description.
-6. User submits.
-7. The ledger updates immediately with optimistic UI.
-8. Dashboard balance, net flow, and recent transactions refresh.
+   - category suggestions = Salary, Freelance / Gig, Creator Income, Resale / Flip, Transfer, Cash Deposit, Refund, Gift, Pocket Money / Allowance, Prize / Win, Crypto / Investment, Paid Back, Other
+5. User selects a bank from the same horizontal bank selector used in Add Expense (Meezan, HBL, UBL, MCB, JazzCash, Easypaisa, SadaPay, NayaPay, Cash).
+6. User enters amount and optional description.
+7. User submits.
+8. The ledger updates immediately with optimistic UI.
+9. If income is above a threshold (e.g. > Rs. 20,000) and category is Salary or Freelance, a brief celebration animation fires.
+10. Dashboard balance, net flow, and recent transactions refresh.
 
 #### Speed Variant
 
-For repeated behavior, the app should also support a one-line natural input similar to the current expense parser:
+For repeated behavior, the app supports a one-line natural input similar to the current expense parser. The parser should handle both structured and conversational input:
 
-- `50000 salary in meezan`
-- `2500 refund to jazzcash`
-- `12000 freelance payment received`
+**Structured:**
+```
+1500 in UBL salary
+8000 freelance meezan
+50000 salary jazzcash
+2500 refund to easypaisa
+```
+
+**Conversational (Gen-Z phrasing):**
+```
+boss paid me 15k
+got paid for that design gig
+salary finally came through lol
+received 2k from Ahmed jazzcash
+freelance payment 8000 meezan
+50k dropped in meezan 🙏
+```
 
 The system parses:
 
 - amount
 - source description
-- destination account
+- destination bank account (using the same BANK_KEYWORDS as the expense parser)
 - probable income category
+
+If amount is missing, prompt: "How much? 💸"
+If bank is missing, default to last used account.
 
 If confidence is high, the user can confirm in one tap.
 
@@ -143,6 +163,33 @@ The system should use a layered decision model rather than a single rule.
 
 For mixed documents, the user should be prompted to split the receipt into multiple transactions before save.
 
+### 2.4 Per-Bank Income Tracking
+
+When income is added, it must be attributed to a specific bank account — the same way expenses are debited from a bank. This is the same `bank_account: string` field convention already used in expenses.
+
+- **Natural language:** `"1500 in UBL"` → credits UBL; `"50k salary meezan"` → credits Meezan Bank
+- **Structured entry:** bank selector in AddMoneyModal mirrors QuickExpenseInput's horizontal scrollable bank list — same banks, same emoji, same colors
+- **Parser:** extend existing `BANK_KEYWORDS` in `utils/expenseParser.ts` into a shared `transactionParser` that works for both directions; do not duplicate the keyword map
+- **Per-bank balance formula:**
+  ```
+  balance(bank) = SUM(income where bank_account = bank) - SUM(expenses where bank_account = bank)
+  ```
+- **Default:** if no bank is specified, attribute to last used account (same behavior as expenses)
+
+Supported bank keywords (reused from existing parser):
+
+| Keyword | Bank Name |
+|---------|-----------|
+| meezan | Meezan Bank |
+| hbl, habib | HBL |
+| ubl | UBL |
+| mcb | MCB |
+| jazzcash, jazz cash | JazzCash |
+| easypaisa | Easypaisa |
+| sadapay, sada pay | SadaPay |
+| nayapay, naya pay | NayaPay |
+| cash | Cash |
+
 ---
 
 ## 3. Core Functionality
@@ -154,11 +201,23 @@ The feature should support four entry methods:
 1. **Manual structured entry**
    - amount
    - category
-   - account
+   - bank account (same horizontal selector as expense entry)
    - date
    - notes
 2. **Natural-language quick entry**
    - extend the current `expenseParser` pattern into a generalized transaction parser
+   - support conversational phrasing alongside structured input
+   - map parsed bank keyword to bank name using the shared `BANK_KEYWORDS` map
+
+   Examples:
+   ```
+   "1500 in UBL salary"       → Salary, 1500, UBL
+   "8000 freelance meezan"    → Freelance, 8000, Meezan Bank
+   "boss paid me 15k"         → Salary, 15000, last used account
+   "received 2k from Ahmed"   → Paid Back, 2000, last used account
+   "salary finally dropped"   → Salary, prompts for amount
+   ```
+
 3. **Receipt scan from camera**
 4. **Receipt upload from gallery/files**
 
@@ -225,11 +284,15 @@ The system should use:
 
 Example:
 
-- `salary credited` maps to `Salary`
-- `refund issued` maps to `Refund`
-- `bank transfer received` maps to `Transfer In`
-- `cash deposit` maps to `Cash Deposit`
-- `POS purchase` maps to an expense category
+- `salary credited` → `Salary`
+- `refund issued` → `Refund`
+- `bank transfer received` → `Transfer In`
+- `cash deposit` → `Cash Deposit`
+- `freelance payment` → `Freelance / Gig`
+- `youtube earnings` → `Creator Income`
+- `sold on OLX` → `Resale / Flip`
+- `pocket money` → `Pocket Money / Allowance`
+- `POS purchase` → expense category
 
 #### Transaction Type Recognition
 
@@ -247,22 +310,30 @@ Example:
 The new flow should reuse as much of the expense infrastructure as possible:
 
 - same floating action entry point
-- same account selector
+- same account selector (same horizontal bank list, same BANK_KEYWORDS)
 - same date picker patterns
 - same optimistic mutation behavior
 - same recent activity list
 
 #### Dashboard
 
-The dashboard should evolve from a spend-only view into a **cash-flow overview**:
+The dashboard should evolve from a spend-only view into a **cash-flow overview**. The primary home screen number should be a single net growth card:
 
-- current balance
+```
+This month: +Rs. 12,000  ↑ vs last month
+```
+
+Tapping reveals the detailed breakdown:
+
 - income this month
 - expenses this month
 - net flow this month
+- current balance per bank
 - recent transactions
 - top expense categories
 - top income sources
+
+This is more emotionally resonant for Gen-Z than a side-by-side income/expense table.
 
 #### Goals
 
@@ -275,7 +346,7 @@ This should be optional in v1, but the data model should support it.
 
 #### Banks and Accounts
 
-Money additions must update the same account-level balance logic used by expenses. A transfer into a bank or wallet should appear as a positive movement linked to that account.
+Money additions must update the same account-level balance logic used by expenses. A transfer into a bank or wallet should appear as a positive movement linked to that account. Per-bank balance is computed as income credited minus expenses debited for that account.
 
 ---
 
@@ -287,6 +358,7 @@ Money additions must update the same account-level balance logic used by expense
 - avoid introducing a second navigation branch just for income
 - default to the fastest likely action
 - preserve the mobile-first interaction style already used in Rizqly
+- every income event should feel good — celebrate money coming in, not just track it
 
 ### Recommended UI Placement
 
@@ -306,7 +378,7 @@ This avoids cluttering the main nav with separate expense and income tabs.
 
 Replace isolated expense-only lists with a ledger feed that visually differentiates:
 
-- income with positive styling
+- income with positive styling and green accent
 - expenses with negative styling
 - mixed or unresolved scanned transactions with a review badge
 
@@ -317,7 +389,7 @@ The review screen should be optimized for quick confirmation:
 - large detected amount
 - segmented control for `Income` / `Expense` / `Split`
 - editable category chip
-- account selector
+- account selector (same bank list)
 - save button fixed to bottom
 
 #### Filters Instead of Separate Screens
@@ -328,10 +400,47 @@ On history and dashboard pages, users should filter by:
 - Income
 - Expenses
 - Scanned
-- Account
+- Account / Bank
 - Category
 
 This keeps the app centralized and avoids parallel information architecture.
+
+### 4.5 Gen-Z Emotional Moments
+
+#### Salary Drop Celebration
+
+When income exceeding a threshold (e.g. > Rs. 20,000) is logged and categorized as Salary or Freelance:
+
+- brief confetti/particle burst animation on submission (Framer Motion)
+- home screen shows a `"Salary dropped 💰"` banner card for 24 hours
+- net balance card briefly highlights in `var(--accent-lime)`
+
+This makes logging income feel rewarding rather than administrative.
+
+#### Income Milestone Badges
+
+Surface a dismissable badge on the home screen when milestones are hit:
+
+- `"First salary logged 🎓"` — first time Salary category is used
+- `"3 months of freelance income 🔥"` — consecutive months with a Freelance entry
+- `"Best month ever 📈"` — current month income exceeds all prior months
+- `"First Rs. 100k month 💎"` — total income in a month crosses 100,000
+
+#### Income Streaks
+
+Track consecutive months in which at least one income entry was logged. Display streak count next to income total on the dashboard.
+
+### 4.6 Net Growth Dashboard Card
+
+The primary number shown on the home screen should be a single net flow card rather than two separate totals:
+
+```
+This month
++Rs. 12,000
+↑ 8% vs last month
+```
+
+Tapping the card expands into income vs expense breakdown. This is the number Gen-Z actually cares about — am I going up or down? — and it is more emotionally legible than a data table.
 
 ---
 
@@ -350,9 +459,12 @@ interface ITransaction extends Document {
   direction: "income" | "expense";
   amount: number;
   description: string;
-  accountId: string | null;
+  bank_account: string;         // Bank NAME string — matches existing Expense convention
+                                // e.g. "Meezan Bank", "UBL", "JazzCash", "Cash"
+                                // Per-bank balance = SUM(income) - SUM(expenses) for that name
+  accountId: string | null;     // Reserved for future ID-based reference
   category: string;
-  date: string; // YYYY-MM-DD
+  date: string;                 // YYYY-MM-DD
   sourceType: "manual" | "natural_language" | "receipt_scan" | "system";
   receiptId: string | null;
   rawInput: string;
@@ -362,6 +474,21 @@ interface ITransaction extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+```
+
+`bank_account` uses the same string-name convention as the existing `Expense` model so that per-bank balance computation works uniformly across both collections during the rollout phase:
+
+```ts
+// Per-bank balance
+const incomeTotal = await Transaction.aggregate([
+  { $match: { userId, direction: "income", bank_account: bankName } },
+  { $group: { _id: null, total: { $sum: "$amount" } } }
+]);
+const expenseTotal = await Expense.aggregate([
+  { $match: { userId, bank_account: bankName } },
+  { $group: { _id: null, total: { $sum: "$amount" } } }
+]);
+const balance = (incomeTotal[0]?.total ?? 0) - (expenseTotal[0]?.total ?? 0);
 ```
 
 #### Receipt Metadata Schema
@@ -507,10 +634,12 @@ This feature should introduce transaction-oriented services:
 
 - `services/transaction.service.ts`
 - `app/api/transactions/route.ts`
-- `utils/transactionParser.ts`
+- `utils/transactionParser.ts` — wraps or imports `BANK_KEYWORDS` from `utils/expenseParser.ts`; do not duplicate the keyword map
 - `services/receipt.service.ts`
 
 The old expense service can remain as a compatibility layer during rollout.
+
+**Bank keyword reuse:** `transactionParser.ts` must import the `BANK_KEYWORDS` constant from `expenseParser.ts` so that both income and expense NLP use the same bank name resolution. This ensures "meezan" always resolves to "Meezan Bank" in both directions.
 
 ### 7.2 OCR and Classification Infrastructure
 
@@ -561,9 +690,10 @@ This is necessary for:
 
 Once income exists, existing charts and insights need adjustment:
 
-- spending-only charts should remain available
-- totals must clearly distinguish gross income, expenses, and net flow
+- spending-only charts should remain available as a drill-down
+- the primary home screen metric is net flow (income minus expenses), not spending total
 - streak and behavioral features must avoid treating money additions as spending events
+- per-bank balance must aggregate both income and expense transactions for that bank
 
 ### 7.6 Security and Privacy
 
@@ -582,28 +712,34 @@ Receipts can contain sensitive financial data. The implementation should:
 
 Ship the smallest complete version that changes user value quickly:
 
-- manual Add Money flow
+- manual Add Money flow with bank selector (same horizontal list as Add Expense)
+- per-bank income attribution via NLP and structured entry
 - unified transaction feed UI
-- transaction API and model
+- transaction API and model (with `bank_account` field)
 - receipt upload
 - OCR extraction
 - direction classification: income vs expense vs needs review
 - review-and-confirm screen
-- dashboard updates for income and net flow
+- dashboard net growth card (`This month: +Rs. X ↑ vs last month`)
+- salary drop celebration animation (Framer Motion confetti on large income saves)
+- income categories: Salary, Freelance / Gig, Creator Income, Resale / Flip, Transfer, Cash Deposit, Refund, Gift, Pocket Money / Allowance, Prize / Win, Crypto / Investment, Paid Back, Other
 
 ### V2 Scope
 
+- income streaks (consecutive months with income logged)
+- income milestone badges (first salary, 3-month freelance streak, best month ever)
+- per-bank balance view showing income credited minus expenses debited per account
 - split transaction flow for mixed documents
 - internal transfer support
 - goal-linked money additions
 - duplicate detection
-- user-history-based category learning
 
 ### V3 Scope
 
 - automatic reconciliation against account balances
 - linking refunds to original expenses
 - smarter classification models and merchant/source memory
+- user-history-based category learning
 
 ---
 
@@ -611,13 +747,18 @@ Ship the smallest complete version that changes user value quickly:
 
 - Should salary and transfers be seeded as default income categories alongside expense categories?
 - Should internal account transfers be supported in the same release or deferred?
-- Does the dashboard home card show one net balance number first, or separate income and expense totals first?
+- Does the dashboard home card show one net balance number first, or separate income and expense totals first? (Recommendation: net number first, breakdown on tap)
 - Should receipt scanning be available to all users or gated behind a premium tier?
+- What threshold triggers the salary drop celebration — Rs. 20,000 or user-configurable?
 
 ---
 
 ## 10. Final Recommendation
 
 Rizqly should implement this feature as a **unified transaction system**, not as a separate income-only branch. That decision keeps the product centralized, simplifies dashboard logic, and makes receipt scanning materially more useful because every uploaded financial document can flow through the same classification and review pipeline.
+
+The bank account attribution model should reuse the existing `bank_account: string` convention from the `Expense` model so that per-bank balance computation requires no schema migration: balance equals income credited to a bank minus expenses paid from the same bank.
+
+The product layer must feel Gen-Z — salary drops should spark confetti, income streaks should feel like streaks, and the home screen should answer "am I growing?" with one number, not a finance report.
 
 If implemented this way, the app becomes faster to use, easier to understand, and significantly more complete as a daily financial tracking product.
