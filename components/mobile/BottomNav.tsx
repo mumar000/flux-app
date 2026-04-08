@@ -47,7 +47,7 @@ function SettingsIcon({ filled }: { filled: boolean }) {
 }
 
 const NAV_ITEMS = [
-  { label: "Home",     href: "/budget",   Icon: HomeIcon },
+  { label: "Home",     href: "/dashboard", Icon: HomeIcon },
   { label: "Goals",    href: "/goals",    Icon: GoalsIcon },
   { label: "Settings", href: "/settings", Icon: SettingsIcon },
 ];

@@ -63,6 +63,7 @@ After this feature is shipped, Rizqly becomes a more complete personal finance t
    - account = last used account
    - category suggestions = Salary, Freelance / Gig, Creator Income, Resale / Flip, Transfer, Cash Deposit, Refund, Gift, Pocket Money / Allowance, Prize / Win, Crypto / Investment, Paid Back, Other
 5. User selects a bank from the same horizontal bank selector used in Add Expense (Meezan, HBL, UBL, MCB, JazzCash, Easypaisa, SadaPay, NayaPay, Cash).
+   - **Do not default silently to "Cash".** The existing `AddExpenseModal` has a known bug where `bankAccount` is hardcoded to `"Cash"` — `AddMoneyModal` must never repeat this. The bank selector must always be visible and require an explicit selection (or default to the last used account, not hardcoded Cash).
 6. User enters amount and optional description.
 7. User submits.
 8. The ledger updates immediately with optimistic UI.
@@ -630,16 +631,84 @@ The current codebase has expense-focused services and routes such as:
 - `app/api/expenses/route.ts`
 - `utils/expenseParser.ts`
 
-This feature should introduce transaction-oriented services:
+This feature should introduce transaction-oriented files:
 
 - `services/transaction.service.ts`
 - `app/api/transactions/route.ts`
-- `utils/transactionParser.ts` — wraps or imports `BANK_KEYWORDS` from `utils/expenseParser.ts`; do not duplicate the keyword map
-- `services/receipt.service.ts`
+- `utils/transactionParser.ts` — imports `BANK_KEYWORDS` from `utils/expenseParser.ts`; do not duplicate the keyword map
+- `hooks/queries/useTransactions.ts` — TanStack Query hook using `queryKeys.transactions`
+- `hooks/mutations/useAddIncome.ts` — follows exact pattern of `useAddExpense` (optimistic update → rollback on error → invalidate on settled)
+- `hooks/mutations/useDeleteTransaction.ts` — follows `useDeleteExpense` pattern
 
-The old expense service can remain as a compatibility layer during rollout.
+The old expense service remains as a compatibility layer during rollout.
 
-**Bank keyword reuse:** `transactionParser.ts` must import the `BANK_KEYWORDS` constant from `expenseParser.ts` so that both income and expense NLP use the same bank name resolution. This ensures "meezan" always resolves to "Meezan Bank" in both directions.
+**Bank keyword reuse:** `transactionParser.ts` must import `BANK_KEYWORDS` from `expenseParser.ts` so both income and expense NLP use the same bank name resolution.
+
+#### Required queryKeys entries
+
+Add to `lib/queryKeys.ts` before shipping any transaction hook:
+
+```ts
+transactions: {
+  all: ['transactions'] as const,
+  list: (filters?: { month?: string; direction?: 'income' | 'expense' }) =>
+    ['transactions', 'list', filters] as const,
+  stats: (month?: string) => ['transactions', 'stats', month] as const,
+},
+```
+
+#### Mutation hook pattern
+
+`useAddIncome.ts` must include all three TanStack Query callbacks:
+
+```ts
+export function useAddIncome() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateTransactionInput) => transactionService.create(input),
+
+    onMutate: async (newIncome) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.transactions.all });
+      const previous = queryClient.getQueryData(queryKeys.transactions.list());
+      queryClient.setQueryData(
+        queryKeys.transactions.list(),
+        (old: Transaction[] = []) => [
+          { id: `temp-${Date.now()}`, ...newIncome, direction: 'income', createdAt: new Date().toISOString() },
+          ...old,
+        ]
+      );
+      return { previous };
+    },
+
+    onError: (_err, _input, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.transactions.list(), context.previous);
+      }
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.transactions.all });
+    },
+  });
+}
+```
+
+#### API response shape
+
+Every `app/api/transactions/route.ts` response must follow the same field transforms as `/api/expenses`:
+- `_id` → `id`
+- `createdAt` → `created_at`
+- `userId` → `user_id`
+
+```ts
+const formatted = doc.toObject();
+formatted.id = formatted._id.toString();
+formatted.created_at = formatted.createdAt;
+formatted.user_id = formatted.userId;
+delete formatted._id;
+delete formatted.__v;
+```
 
 ### 7.2 OCR and Classification Infrastructure
 
@@ -708,31 +777,37 @@ Receipts can contain sensitive financial data. The implementation should:
 
 ## 8. Implementation Recommendation
 
-### V1 Scope
+### V1 Scope — Ship Fast (Days, Not Weeks)
 
-Ship the smallest complete version that changes user value quickly:
+The fastest shippable slice that delivers real user value:
 
-- manual Add Money flow with bank selector (same horizontal list as Add Expense)
-- per-bank income attribution via NLP and structured entry
-- unified transaction feed UI
-- transaction API and model (with `bank_account` field)
-- receipt upload
-- OCR extraction
-- direction classification: income vs expense vs needs review
-- review-and-confirm screen
+- `ITransaction` model + `app/api/transactions/route.ts`
+- `lib/queryKeys.ts` — add `transactions` factory
+- `services/transaction.service.ts`
+- `utils/transactionParser.ts` — reuses `BANK_KEYWORDS` from `expenseParser.ts`
+- `hooks/queries/useTransactions.ts`
+- `hooks/mutations/useAddIncome.ts` (optimistic, with rollback)
+- `AddMoneyModal` component with explicit bank selector (mirrors QuickExpenseInput bank list)
+- NLP quick entry — conversational phrasing support
+- per-bank income attribution (same `bank_account: string` field as expenses)
+- unified transaction feed on dashboard (income + expenses in one list)
 - dashboard net growth card (`This month: +Rs. X ↑ vs last month`)
-- salary drop celebration animation (Framer Motion confetti on large income saves)
+- salary drop celebration animation (Framer Motion confetti on saves > Rs. 20,000)
 - income categories: Salary, Freelance / Gig, Creator Income, Resale / Flip, Transfer, Cash Deposit, Refund, Gift, Pocket Money / Allowance, Prize / Win, Crypto / Investment, Paid Back, Other
+
+**Receipt scanning is NOT in V1.** It requires image storage, OCR provider setup, async classification pipeline, and a review screen — that is a separate 3-4 week workstream. Ship manual + NLP income first.
 
 ### V2 Scope
 
+- receipt upload, OCR extraction, income/expense direction classification
+- review-and-confirm screen for scanned receipts
 - income streaks (consecutive months with income logged)
 - income milestone badges (first salary, 3-month freelance streak, best month ever)
-- per-bank balance view showing income credited minus expenses debited per account
-- split transaction flow for mixed documents
+- per-bank balance view (income credited − expenses debited per account)
+- split transaction flow for mixed receipt documents
 - internal transfer support
 - goal-linked money additions
-- duplicate detection
+- duplicate scan detection
 
 ### V3 Scope
 

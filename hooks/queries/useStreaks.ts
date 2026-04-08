@@ -10,7 +10,7 @@ export function useStreaks() {
     queryKey: queryKeys.streaks.current(),
     queryFn: () => streakService.get(),
     enabled: status === "authenticated",
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60 * 10, // 10 minutes — streak API is heavy (90d MongoDB query)
+    refetchOnWindowFocus: false,
   });
 }
