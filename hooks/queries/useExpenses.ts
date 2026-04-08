@@ -10,6 +10,6 @@ export function useExpensesQuery() {
     queryKey: queryKeys.expenses.list(),
     queryFn: () => expenseService.getAll(),
     enabled: status === "authenticated",
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 60 * 5,
   });
 }
