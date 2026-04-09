@@ -18,17 +18,13 @@ export async function GET(req: Request) {
         { userId: session.user.id },
         { is_default: true }
       ]
-    });
-    
-    const formattedBanks = banks.map(b => {
-        const doc = b.toObject();
-        doc.id = doc._id.toString();
-        // user_id for frontend parity
-        doc.user_id = doc.userId;
-        delete doc._id;
-        delete doc.__v;
-        return doc;
-    });
+    }).lean();
+
+    const formattedBanks = banks.map(({ _id, __v, ...rest }) => ({
+        id: _id.toString(),
+        user_id: rest.userId,
+        ...rest,
+    }));
 
     return NextResponse.json(formattedBanks);
   } catch (error: any) {

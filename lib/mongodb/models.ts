@@ -47,6 +47,8 @@ const CategorySchema = new Schema<ICategory>(
   { timestamps: { createdAt: true, updatedAt: false } }
 );
 
+CategorySchema.index({ userId: 1, is_default: 1 });
+
 export const Category = mongoose.models.Category || mongoose.model<ICategory>("Category", CategorySchema);
 
 // --- Bank ---
@@ -64,6 +66,8 @@ const BankSchema = new Schema<IBank>(
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );
+
+BankSchema.index({ userId: 1 });
 
 export const Bank = mongoose.models.Bank || mongoose.model<IBank>("Bank", BankSchema);
 
@@ -93,6 +97,8 @@ const ExpenseSchema = new Schema<IExpense>(
   },
   { timestamps: true }
 );
+
+ExpenseSchema.index({ userId: 1, date: -1 });
 
 export const Expense = mongoose.models.Expense || mongoose.model<IExpense>("Expense", ExpenseSchema);
 

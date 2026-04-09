@@ -20,29 +20,29 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session?.user && token.sub) {
         session.user.id = token.sub;
-
-        // Ensure user has a profile record
-        try {
-          await dbConnect();
-          const p = await Profile.findOne({ userId: token.sub });
-          if (!p) {
-            await Profile.create({
-              userId: token.sub,
-              username: session.user.name,
-              full_name: session.user.name,
-              avatar_url: session.user.image,
-              onboarding_completed: false,
-            });
-          }
-        } catch (err) {
-          console.error("Error creating profile in session callback:", err);
-        }
       }
       return session;
     },
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
+
+        // Create profile only on first sign-in, not every session check
+        try {
+          await dbConnect();
+          const p = await Profile.findOne({ userId: user.id }).lean();
+          if (!p) {
+            await Profile.create({
+              userId: user.id,
+              username: user.name,
+              full_name: user.name,
+              avatar_url: user.image,
+              onboarding_completed: false,
+            });
+          }
+        } catch (err) {
+          console.error("Error creating profile on sign-in:", err);
+        }
       }
       return token;
     },
