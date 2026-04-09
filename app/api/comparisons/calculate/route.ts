@@ -2,13 +2,32 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb/mongoose";
-import { ComparisonItem, Expense, Goal } from "@/lib/mongodb/models";
+import { ComparisonItem, Goal } from "@/lib/mongodb/models";
+import { getUnifiedExpenses } from "@/lib/transactions";
 import {
   calculateInsights,
   type CalcGoal,
   type ComparisonItem as ComparisonItemType,
   type CalculateInsightsResponse,
 } from "@/services/comparison.service";
+
+type LeanComparisonItem = {
+  _id: { toString(): string };
+  label: string;
+  amount: number;
+  emoji: string;
+  enabled: boolean;
+  is_default: boolean;
+  createdAt?: Date;
+};
+
+type LeanGoal = {
+  _id: { toString(): string };
+  title: string;
+  emoji?: string | null;
+  target_amount: number;
+  current_amount: number;
+};
 
 // ---------------------------------------------------------------------------
 // POST /api/comparisons/calculate
@@ -92,24 +111,16 @@ export async function POST(req: Request) {
       category.trim()
     ) {
       const now = new Date();
-      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const monthlyExpenses = await getUnifiedExpenses(userId, { month });
 
-      const agg = await Expense.aggregate<{ total: number }>([
-        {
-          $match: {
-            userId,
-            category: category.trim(),
-            date: { $gte: monthStart },
-          },
-        },
-        { $group: { _id: null, total: { $sum: "$amount" } } },
-      ]);
-
-      resolvedMonthlyTotal = agg[0]?.total ?? 0;
+      resolvedMonthlyTotal = monthlyExpenses
+        .filter((expense) => expense.category === category.trim())
+        .reduce((sum, expense) => sum + Number(expense.amount), 0);
     }
 
     // --- Shape raw DB documents into the types the engine expects ---
-    const items: ComparisonItemType[] = rawItems.map((i: any) => ({
+    const items: ComparisonItemType[] = (rawItems as LeanComparisonItem[]).map((i) => ({
       id: i._id.toString(),
       label: i.label,
       amount: i.amount,
@@ -119,7 +130,7 @@ export async function POST(req: Request) {
       createdAt: i.createdAt?.toISOString() ?? "",
     }));
 
-    const goals: CalcGoal[] = rawGoals.map((g: any) => ({
+    const goals: CalcGoal[] = (rawGoals as LeanGoal[]).map((g) => ({
       id: g._id.toString(),
       title: g.title,
       emoji: g.emoji ?? "🎯",

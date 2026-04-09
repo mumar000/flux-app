@@ -233,6 +233,61 @@ export const SpendStreak =
   mongoose.models.SpendStreak ||
   mongoose.model<ISpendStreak>("SpendStreak", SpendStreakSchema);
 
+// --- Transaction ---
+export interface ITransaction extends Document {
+  _id: mongoose.Types.ObjectId;
+  userId: string;
+  direction: "income" | "expense";
+  amount: number;
+  description: string;
+  bank_account: string;
+  category: string;
+  date: string; // YYYY-MM-DD
+  sourceType: "manual" | "natural_language" | "receipt_scan" | "system";
+  receiptId: string | null;
+  rawInput: string;
+  scanConfidence: number | null;
+  scanStatus: "none" | "detected" | "confirmed" | "needs_review";
+  relatedGoalId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const TransactionSchema = new Schema<ITransaction>(
+  {
+    userId: { type: String, required: true },
+    direction: { type: String, required: true, enum: ["income", "expense"] },
+    amount: { type: Number, required: true },
+    description: { type: String, required: true },
+    bank_account: { type: String, required: true },
+    category: { type: String, required: true },
+    date: { type: String, required: true },
+    sourceType: {
+      type: String,
+      required: true,
+      enum: ["manual", "natural_language", "receipt_scan", "system"],
+      default: "manual",
+    },
+    receiptId: { type: String, default: null },
+    rawInput: { type: String, default: "" },
+    scanConfidence: { type: Number, default: null },
+    scanStatus: {
+      type: String,
+      enum: ["none", "detected", "confirmed", "needs_review"],
+      default: "none",
+    },
+    relatedGoalId: { type: String, default: null },
+  },
+  { timestamps: true }
+);
+
+TransactionSchema.index({ userId: 1, date: -1 });
+TransactionSchema.index({ userId: 1, direction: 1, date: -1 });
+
+export const Transaction =
+  mongoose.models.Transaction ||
+  mongoose.model<ITransaction>("Transaction", TransactionSchema);
+
 // --- ComparisonItem ---
 export interface IComparisonItem extends Document {
   _id: mongoose.Types.ObjectId;

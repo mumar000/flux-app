@@ -11,7 +11,7 @@ export interface ParsedExpense {
 }
 
 // Common bank names in Pakistan
-const BANK_KEYWORDS: Record<string, string> = {
+export const BANK_KEYWORDS: Record<string, string> = {
   meezan: "Meezan Bank",
   hbl: "HBL",
   habib: "HBL",

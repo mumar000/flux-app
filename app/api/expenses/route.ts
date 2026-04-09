@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb/mongoose";
-import { Expense } from "@/lib/mongodb/models";
+import { Expense, Transaction } from "@/lib/mongodb/models";
+import { getUnifiedExpenses, transactionToExpenseLike } from "@/lib/transactions";
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
+}
 
 export async function GET(req: Request) {
   try {
@@ -12,22 +17,13 @@ export async function GET(req: Request) {
     }
 
     await dbConnect();
-    const expenses = await Expense.find({ userId: session.user.id }).sort({ createdAt: -1 });
-    
-    // Convert Mongoose doc to basic object and rename _id to id for frontend parity
-    const formattedExpenses = expenses.map(e => {
-        const doc = e.toObject();
-        doc.id = doc._id.toString();
-        // created_at instead of createdAt for frontend parity
-        doc.created_at = doc.createdAt;
-        delete doc._id;
-        delete doc.__v;
-        return doc;
-    });
+    const { searchParams } = new URL(req.url);
+    const month = searchParams.get("month") ?? undefined;
+    const formattedExpenses = await getUnifiedExpenses(session.user.id, { month });
 
     return NextResponse.json(formattedExpenses);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
 
@@ -40,19 +36,46 @@ export async function POST(req: Request) {
 
     const data = await req.json();
     await dbConnect();
-    
-    const newExpense = await Expense.create({
-      ...data,
+
+    const newTransaction = await Transaction.create({
       userId: session.user.id,
+      direction: "expense",
+      amount: data.amount,
+      description: data.description,
+      bank_account: data.bank_account,
+      category: data.category ?? "Other",
+      date: data.date ?? new Date().toISOString().split("T")[0],
+      sourceType: data.sourceType ?? "manual",
+      rawInput: data.raw_input ?? data.rawInput ?? "",
+      scanConfidence: data.scanConfidence ?? null,
+      scanStatus: data.scanStatus ?? "none",
+      relatedGoalId: data.relatedGoalId ?? null,
+      receiptId: data.receiptId ?? null,
     });
-    
-    const doc = newExpense.toObject();
-    doc.id = doc._id.toString();
-    doc.created_at = doc.createdAt;
-    
-    return NextResponse.json(doc, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const expenseLike = transactionToExpenseLike({
+      id: newTransaction._id.toString(),
+      direction: "expense",
+      amount: newTransaction.amount,
+      description: newTransaction.description,
+      bank_account: newTransaction.bank_account,
+      category: newTransaction.category,
+      date: newTransaction.date,
+      sourceType: newTransaction.sourceType,
+      receiptId: newTransaction.receiptId ?? null,
+      rawInput: newTransaction.rawInput ?? "",
+      scanConfidence: newTransaction.scanConfidence ?? null,
+      scanStatus: newTransaction.scanStatus ?? "none",
+      relatedGoalId: newTransaction.relatedGoalId ?? null,
+      created_at: newTransaction.createdAt,
+      updated_at: newTransaction.updatedAt,
+      user_id: session.user.id,
+      source: "transaction",
+    });
+
+    return NextResponse.json(expenseLike, { status: 201 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
 
@@ -71,6 +94,16 @@ export async function DELETE(req: Request) {
         }
 
         await dbConnect();
+        const deletedTransaction = await Transaction.findOneAndDelete({
+            _id: id,
+            userId: session.user.id,
+            direction: "expense",
+        });
+
+        if (deletedTransaction) {
+            return NextResponse.json({ success: true });
+        }
+
         const deleted = await Expense.findOneAndDelete({ _id: id, userId: session.user.id });
 
         if (!deleted) {
@@ -78,7 +111,7 @@ export async function DELETE(req: Request) {
         }
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
     }
 }

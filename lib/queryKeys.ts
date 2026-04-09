@@ -29,4 +29,10 @@ export const queryKeys = {
     insights: (amount: number, category?: string) =>
       ["comparisons", "insights", amount, category] as const,
   },
+  transactions: {
+    all: ["transactions"] as const,
+    list: (filters?: { month?: string; direction?: "income" | "expense" }) =>
+      ["transactions", "list", filters] as const,
+    stats: (month?: string) => ["transactions", "stats", month] as const,
+  },
 } as const;

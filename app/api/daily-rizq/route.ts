@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb/mongoose";
-import { DailyRizq, Expense } from "@/lib/mongodb/models";
+import { DailyRizq } from "@/lib/mongodb/models";
+import { getUnifiedExpenses, type ExpenseLike } from "@/lib/transactions";
 
 // --- Card generation templates ---
 
@@ -274,33 +275,25 @@ export async function GET(req: Request) {
     const yesterdayEnd = new Date(yesterdayStart);
     yesterdayEnd.setHours(23, 59, 59, 999);
 
-    const [thisWeekExpenses, lastWeekExpenses, thisMonthExpenses, yesterdayExpenses] =
-      await Promise.all([
-        Expense.find({
-          userId: session.user.id,
-          date: { $gte: weekAgo.toISOString().split("T")[0] },
-        }).lean(),
-        Expense.find({
-          userId: session.user.id,
-          date: {
-            $gte: twoWeeksAgo.toISOString().split("T")[0],
-            $lt: weekAgo.toISOString().split("T")[0],
-          },
-        }).lean(),
-        Expense.find({
-          userId: session.user.id,
-          date: { $gte: monthStart.toISOString().split("T")[0] },
-        }).lean(),
-        Expense.find({
-          userId: session.user.id,
-          date: {
-            $gte: yesterdayStart.toISOString().split("T")[0],
-            $lte: yesterdayEnd.toISOString().split("T")[0],
-          },
-        }).lean(),
-      ]);
+    const expenses = await getUnifiedExpenses(session.user.id);
 
-    const mapExpense = (e: any) => ({
+    const thisWeekStart = weekAgo.toISOString().split("T")[0];
+    const lastWeekStart = twoWeeksAgo.toISOString().split("T")[0];
+    const monthStartStr = monthStart.toISOString().split("T")[0];
+    const yesterdayStartStr = yesterdayStart.toISOString().split("T")[0];
+    const yesterdayEndStr = yesterdayEnd.toISOString().split("T")[0];
+
+    const thisWeekExpenses = expenses.filter((expense) => expense.date >= thisWeekStart);
+    const lastWeekExpenses = expenses.filter(
+      (expense) => expense.date >= lastWeekStart && expense.date < thisWeekStart
+    );
+    const thisMonthExpenses = expenses.filter((expense) => expense.date >= monthStartStr);
+    const yesterdayExpenses = expenses.filter(
+      (expense) =>
+        expense.date >= yesterdayStartStr && expense.date <= yesterdayEndStr
+    );
+
+    const mapExpense = (e: ExpenseLike) => ({
       amount: e.amount,
       category: e.category,
       description: e.description,

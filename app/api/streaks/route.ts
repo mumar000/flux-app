@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb/mongoose";
-import { Expense, SpendStreak, type IExpense, type ISpendStreak } from "@/lib/mongodb/models";
+import { SpendStreak, type ISpendStreak } from "@/lib/mongodb/models";
+import { getUnifiedExpenses, type ExpenseLike } from "@/lib/transactions";
 import {
   computeNoImpulseStreak,
   computeUnderBudgetStreak,
@@ -51,7 +52,7 @@ function formatStreakResponse(
 // ---------------------------------------------------------------------------
 async function computeAndSaveStreaks(
   userId: string,
-  expenses: IExpense[],
+  expenses: ExpenseLike[],
   existingStreak: ISpendStreak | null
 ): Promise<ISpendStreak> {
   // Convert Mongoose docs to the plain StreakExpense shape
@@ -120,12 +121,8 @@ export async function GET() {
     ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 90);
     const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split("T")[0];
 
-    const expenses = await Expense.find({
-      userId,
-      date: { $gte: ninetyDaysAgoStr },
-    })
-      .sort({ date: -1 })
-      .lean<IExpense[]>();
+    const expenses = await getUnifiedExpenses(userId);
+    const recentExpenses = expenses.filter((expense) => expense.date >= ninetyDaysAgoStr);
 
     const existingStreak = await SpendStreak.findOne({ userId }).lean<ISpendStreak>();
 
@@ -135,7 +132,7 @@ export async function GET() {
 
     let streakDoc: ISpendStreak;
     if (isStale) {
-      streakDoc = await computeAndSaveStreaks(userId, expenses as IExpense[], existingStreak);
+      streakDoc = await computeAndSaveStreaks(userId, recentExpenses, existingStreak);
     } else {
       streakDoc = existingStreak;
     }
@@ -144,7 +141,7 @@ export async function GET() {
       streakDoc.dailyBudget !== null
         ? streakDoc.dailyBudget
         : autoDailyBudget(
-            (expenses as IExpense[]).map((e) => ({
+            recentExpenses.map((e) => ({
               amount: e.amount,
               description: e.description,
               category: e.category,
@@ -205,17 +202,13 @@ export async function PATCH(req: Request) {
     ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 90);
     const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split("T")[0];
 
-    const expenses = await Expense.find({
-      userId,
-      date: { $gte: ninetyDaysAgoStr },
-    })
-      .sort({ date: -1 })
-      .lean<IExpense[]>();
+    const expenses = await getUnifiedExpenses(userId);
+    const recentExpenses = expenses.filter((expense) => expense.date >= ninetyDaysAgoStr);
 
     const updatedExisting = await SpendStreak.findOne({ userId }).lean<ISpendStreak>();
     const streakDoc = await computeAndSaveStreaks(
       userId,
-      expenses as IExpense[],
+      recentExpenses,
       updatedExisting
     );
 
@@ -223,7 +216,7 @@ export async function PATCH(req: Request) {
       streakDoc.dailyBudget !== null
         ? streakDoc.dailyBudget
         : autoDailyBudget(
-            (expenses as IExpense[]).map((e) => ({
+            recentExpenses.map((e) => ({
               amount: e.amount,
               description: e.description,
               category: e.category,
@@ -269,17 +262,13 @@ export async function POST(req: Request) {
     ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 90);
     const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split("T")[0];
 
-    const expenses = await Expense.find({
-      userId,
-      date: { $gte: ninetyDaysAgoStr },
-    })
-      .sort({ date: -1 })
-      .lean<IExpense[]>();
+    const expenses = await getUnifiedExpenses(userId);
+    const recentExpenses = expenses.filter((expense) => expense.date >= ninetyDaysAgoStr);
 
     const existingStreak = await SpendStreak.findOne({ userId }).lean<ISpendStreak>();
     const streakDoc = await computeAndSaveStreaks(
       userId,
-      expenses as IExpense[],
+      recentExpenses,
       existingStreak
     );
 
@@ -287,7 +276,7 @@ export async function POST(req: Request) {
       streakDoc.dailyBudget !== null
         ? streakDoc.dailyBudget
         : autoDailyBudget(
-            (expenses as IExpense[]).map((e) => ({
+            recentExpenses.map((e) => ({
               amount: e.amount,
               description: e.description,
               category: e.category,
