@@ -267,7 +267,7 @@ function GoalRow({ goal, index }: { goal: Goal; index: number }) {
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function GoalsPage() {
   const { user, loading: authLoading } = useAuth();
-  const { data: goals = [] } = useGoals();
+  const { data: goals = [], isPending: goalsLoading } = useGoals();
   const [showCreate, setShowCreate] = useState(false);
 
   if (!user && !authLoading) return null;
@@ -333,8 +333,17 @@ export default function GoalsPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 space-y-4">
 
+        {/* Loading skeleton wrapper if needed (or simply nothing) */}
+        {goalsLoading && (
+          <div className="flex justify-center py-10 mt-8">
+            <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.5 }} className="text-white/20 text-sm font-bold uppercase tracking-widest">
+              Loading Goals...
+            </motion.div>
+          </div>
+        )}
+
         {/* Empty state */}
-        {goals.length === 0 && (
+        {!goalsLoading && goals.length === 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
             className="rounded-[28px] p-8 text-center mt-4 cursor-pointer"
             style={{ background: "rgba(204,255,0,0.04)", border: "1px dashed rgba(204,255,0,0.2)" }}

@@ -651,11 +651,6 @@ export function SwipeExpenseInput({ onExpenseAdded }: SwipeExpenseInputProps) {
                   >
                     {/* Summary Card */}
                     <motion.div
-                      style={{
-                        y: swipeY,
-                        opacity: swipeOpacity,
-                        scale: swipeScale,
-                      }}
                       drag="y"
                       dragConstraints={{ top: -150, bottom: 0 }}
                       dragElastic={0.2}
@@ -665,6 +660,9 @@ export function SwipeExpenseInput({ onExpenseAdded }: SwipeExpenseInputProps) {
                       animate={{ scale: 1, opacity: 1 }}
                       whileDrag={{ scale: 1.02 }}
                       style={{
+                        y: swipeY,
+                        opacity: swipeOpacity,
+                        scale: swipeScale,
                         background:
                           "linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%)",
                         border: "1px solid rgba(255,255,255,0.15)",

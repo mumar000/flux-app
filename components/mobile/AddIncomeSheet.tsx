@@ -153,6 +153,12 @@ export function AddIncomeSheet({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 26, stiffness: 280 }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 200 }}
+            dragElastic={{ top: 0, bottom: 0.5 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 100) handleClose();
+            }}
             className="absolute bottom-0 left-0 right-0 rounded-t-[32px] overflow-hidden"
             style={{
               background:

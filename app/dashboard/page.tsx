@@ -12,32 +12,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTransactions, useTransactionStats } from "@/hooks/queries/useTransactions";
 import { useDeleteTransaction } from "@/hooks/mutations/useDeleteTransaction";
 import { type Transaction } from "@/services/transaction.service";
-import { SpendingPieChart } from "@/components/mobile/SpendingPieChart";
+import { FinanceAnalyticsChart } from "@/components/mobile/FinanceAnalyticsChart";
 import { DailyRizqCard } from "@/components/mobile/DailyRizqCard";
 
-import { formatPKR, CATEGORY_EMOJIS, CATEGORY_COLORS } from "@/utils/expenseParser";
+import { formatPKR, CATEGORY_EMOJIS, CATEGORY_COLORS, INCOME_EMOJIS, INCOME_COLORS } from "@/utils/expenseParser";
 
-const INCOME_EMOJIS: Record<string, string> = {
-  Salary: "💼",
-  "Freelance / Gig": "🧠",
-  Transfer: "🔄",
-  "Cash Deposit": "🏦",
-  Refund: "↩️",
-  Gift: "🎁",
-  "Paid Back": "🤝",
-  Other: "✨",
-};
-
-const INCOME_COLORS: Record<string, string> = {
-  Salary: "#22C55E",
-  "Freelance / Gig": "#06B6D4",
-  Transfer: "#38BDF8",
-  "Cash Deposit": "#84CC16",
-  Refund: "#F59E0B",
-  Gift: "#EC4899",
-  "Paid Back": "#A78BFA",
-  Other: "#94A3B8",
-};
 
 interface SwipeableTransactionRowProps {
   transaction: Transaction;
@@ -151,6 +130,15 @@ export default function DashboardPage() {
     const byCategory: Record<string, number> = {};
     expensesOnly.forEach((expense) => {
       byCategory[expense.category] = (byCategory[expense.category] ?? 0) + Number(expense.amount);
+    });
+    return byCategory;
+  }, [transactions]);
+
+  const incomeBreakdown = useMemo(() => {
+    const incomesOnly = transactions.filter((t) => t.direction === "income");
+    const byCategory: Record<string, number> = {};
+    incomesOnly.forEach((income) => {
+      byCategory[income.category] = (byCategory[income.category] ?? 0) + Number(income.amount);
     });
     return byCategory;
   }, [transactions]);
@@ -294,7 +282,12 @@ export default function DashboardPage() {
               </motion.div>
             ) : (
               <motion.div key="real-chart" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <SpendingPieChart data={expenseBreakdown} totalSpent={totalExpenses} title="Expenses by Category" />
+                <FinanceAnalyticsChart
+                  expenseData={expenseBreakdown}
+                  incomeData={incomeBreakdown}
+                  totalExpenses={totalExpenses}
+                  totalIncome={totalIncome}
+                />
               </motion.div>
             )}
           </AnimatePresence>

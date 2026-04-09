@@ -263,13 +263,13 @@ export function GoalCard({ goal, colorIndex }: GoalCardProps) {
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={{ left: 0.5, right: 0 }}
           onDragEnd={handleDragEnd}
-          style={{ x, scale: cardScale }}
+          onClick={() => !goal.completed && setShowSheet(true)}
+          className="relative rounded-[24px] p-4 overflow-hidden cursor-pointer"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 280, damping: 24 }}
-          onClick={() => !goal.completed && setShowSheet(true)}
-          className="relative rounded-[24px] p-4 overflow-hidden cursor-pointer"
           style={{
+            x, scale: cardScale,
             background: goal.completed
               ? `linear-gradient(145deg, ${color}14, ${color}05)`
               : "rgba(255,255,255,0.04)",

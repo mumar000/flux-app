@@ -14,7 +14,7 @@ export default function AuthPage() {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { signUp, signIn } = useAuth();
+  const { signUp, signIn } = useAuth() as any;
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {

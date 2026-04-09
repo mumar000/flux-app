@@ -169,6 +169,27 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Groceries: "#E67E22",
   Other: "#BDC3C7",
 };
+export const INCOME_EMOJIS: Record<string, string> = {
+  Salary: "💼",
+  "Freelance / Gig": "🧠",
+  Transfer: "🔄",
+  "Cash Deposit": "🏦",
+  Refund: "↩️",
+  Gift: "🎁",
+  "Paid Back": "🤝",
+  Other: "✨",
+};
+
+export const INCOME_COLORS: Record<string, string> = {
+  Salary: "#22C55E",
+  "Freelance / Gig": "#06B6D4",
+  Transfer: "#38BDF8",
+  "Cash Deposit": "#84CC16",
+  Refund: "#F59E0B",
+  Gift: "#EC4899",
+  "Paid Back": "#A78BFA",
+  Other: "#BDC3C7",
+};
 
 export function parseExpense(input: string): ParsedExpense | null {
   const rawInput = input.trim();
