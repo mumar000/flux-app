@@ -267,8 +267,6 @@ export default function SettingsPage() {
         <ComparisonItemsManager />
 
       </div>
-
-      <BottomNav />
     </div>
   );
 }

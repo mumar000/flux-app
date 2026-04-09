@@ -9,7 +9,6 @@ import { type Transaction } from "@/services/transaction.service";
 import { SpendingPieChart } from "@/components/mobile/SpendingPieChart";
 import { DailyRizqCard } from "@/components/mobile/DailyRizqCard";
 
-import { BottomNav } from "@/components/mobile/BottomNav";
 import { formatPKR, CATEGORY_EMOJIS, CATEGORY_COLORS } from "@/utils/expenseParser";
 
 const INCOME_EMOJIS: Record<string, string> = {
@@ -383,8 +382,6 @@ export default function BudgetPage() {
           </div>
         </div>
       </div>
-
-      <BottomNav />
     </div>
   );
 }

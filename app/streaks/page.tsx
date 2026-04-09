@@ -2,7 +2,6 @@
 
 import React from "react";
 import { SpendStreakCard } from "@/components/mobile/SpendStreakCard";
-import { BottomNav } from "@/components/mobile/BottomNav";
 
 export default function StreaksPage() {
   const currentMonth = new Date().toLocaleDateString("en-PK", { month: "long", year: "numeric" });
@@ -21,8 +20,6 @@ export default function StreaksPage() {
           <SpendStreakCard />
         </div>
       </div>
-
-      <BottomNav />
     </div>
   );
 }

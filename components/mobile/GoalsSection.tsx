@@ -7,7 +7,7 @@ import { GoalCard } from "@/components/mobile/GoalCard";
 import { CreateGoalModal } from "@/components/mobile/CreateGoalModal";
 
 export function GoalsSection() {
-  const { data: goals = [], isLoading } = useGoals();
+  const { data: goals = [], isPending } = useGoals();
   const [showCreate, setShowCreate] = useState(false);
 
   const activeGoals = goals.filter((g) => !g.completed);
@@ -22,7 +22,7 @@ export function GoalsSection() {
           <h3 className="text-sm font-extrabold text-white/50 uppercase tracking-widest">
             Goals
           </h3>
-          {!isLoading && goals.length > 0 && (
+          {!isPending && goals.length > 0 && (
             <span
               className="text-[10px] font-extrabold px-2 py-0.5 rounded-full"
               style={{
@@ -51,7 +51,7 @@ export function GoalsSection() {
       </div>
 
       {/* Loading skeleton */}
-      {isLoading && (
+      {isPending && (
         <div className="flex gap-3 overflow-hidden">
           {[0, 1, 2].map((i) => (
             <div key={i}
@@ -67,7 +67,7 @@ export function GoalsSection() {
       )}
 
       {/* Empty state */}
-      {!isLoading && goals.length === 0 && (
+      {!isPending && goals.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -102,7 +102,7 @@ export function GoalsSection() {
       )}
 
       {/* Active goals horizontal scroll */}
-      {!isLoading && activeGoals.length > 0 && (
+      {!isPending && activeGoals.length > 0 && (
         <div className="-mx-6 px-6">
           <div className="flex gap-3 overflow-x-auto pb-2"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
@@ -144,7 +144,7 @@ export function GoalsSection() {
       )}
 
       {/* Completed goals */}
-      {!isLoading && completedGoals.length > 0 && (
+      {!isPending && completedGoals.length > 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

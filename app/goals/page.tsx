@@ -6,8 +6,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useGoals } from "@/hooks/queries/useGoals";
 import { useContributeGoal } from "@/hooks/mutations/useContributeGoal";
 import { useDeleteGoal } from "@/hooks/mutations/useDeleteGoal";
+import { GoalsSection } from "@/components/mobile/GoalsSection";
 import { CreateGoalModal } from "@/components/mobile/CreateGoalModal";
-import { BottomNav } from "@/components/mobile/BottomNav";
 import type { Goal } from "@/services/goal.service";
 
 // ── Color palette ──────────────────────────────────────────────────────────────
@@ -381,7 +381,6 @@ export default function GoalsPage() {
       </div>
 
       <CreateGoalModal isOpen={showCreate} onClose={() => setShowCreate(false)} />
-      <BottomNav />
     </div>
   );
 }
