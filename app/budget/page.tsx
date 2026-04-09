@@ -194,41 +194,78 @@ export default function BudgetPage() {
           </motion.button>
         </div>
 
-        {/* Net flow card */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-          className="mt-5 p-6 rounded-[24px] relative overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, rgba(204,255,0,0.1) 0%, rgba(204,255,0,0.03) 100%)",
-            border: "1px solid rgba(204,255,0,0.2)",
-          }}
-        >
-          <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full opacity-20"
-            style={{ background: "radial-gradient(circle, #CCFF00 0%, transparent 70%)" }} />
-          <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-1">Net Flow</p>
-          <AnimatePresence mode="wait">
-            {isLoading ? (
-              <motion.div key="skel-amount" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="w-40 h-10 rounded-2xl mb-2 animate-pulse" style={{ background: "rgba(255,255,255,0.08)" }} />
-                <div className="w-28 h-4 rounded-xl animate-pulse" style={{ background: "rgba(255,255,255,0.05)" }} />
-              </motion.div>
-            ) : (
-              <motion.div key="real-amount" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-                <h2 className={`text-4xl font-extrabold ${netFlow >= 0 ? "text-white" : "text-[#FF8B8B]"}`}>
-                  {netFlow >= 0 ? "+" : "-"}{formatPKR(Math.abs(netFlow))}
-                </h2>
-                <p className="text-white/35 text-sm mt-1">
-                  {transactions.length} transaction{transactions.length !== 1 ? "s" : ""} this month
-                </p>
-                <div className="flex items-center gap-4 mt-3 text-xs">
-                  <span className="text-[#86EFAC]">In {formatPKR(totalIncome)}</span>
-                  <span className="text-white/20">•</span>
-                  <span className="text-white/65">Out {formatPKR(totalExpenses)}</span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
+        {/* Income and Expense Cards */}
+        <div className="mt-5 grid grid-cols-2 gap-4">
+          {/* Income Card */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
+            className="p-5 rounded-[24px] relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, rgba(134,239,172,0.1) 0%, rgba(134,239,172,0.02) 100%)",
+              border: "1px solid rgba(134,239,172,0.2)",
+            }}
+          >
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-20"
+              style={{ background: "radial-gradient(circle, #86EFAC 0%, transparent 70%)" }} />
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[#86EFAC]/10 text-[#86EFAC]">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </div>
+              <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">Income</p>
+            </div>
+            
+            <AnimatePresence mode="wait">
+              {isLoading ? (
+                <motion.div key="skel-in" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="w-20 h-8 rounded-xl animate-pulse" style={{ background: "rgba(255,255,255,0.08)" }} />
+                </motion.div>
+              ) : (
+                <motion.div key="real-in" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-white break-all">
+                    {formatPKR(totalIncome)}
+                  </h2>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* Expense Card */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}
+            className="p-5 rounded-[24px] relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, rgba(255,139,139,0.1) 0%, rgba(255,139,139,0.02) 100%)",
+              border: "1px solid rgba(255,139,139,0.2)",
+            }}
+          >
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-20"
+              style={{ background: "radial-gradient(circle, #FF8B8B 0%, transparent 70%)" }} />
+             <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[#FF8B8B]/10 text-[#FF8B8B]">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+              </div>
+              <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">Expense</p>
+            </div>
+            
+            <AnimatePresence mode="wait">
+              {isLoading ? (
+                <motion.div key="skel-out" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="w-20 h-8 rounded-xl animate-pulse" style={{ background: "rgba(255,255,255,0.08)" }} />
+                </motion.div>
+              ) : (
+                <motion.div key="real-out" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-white break-all">
+                    {formatPKR(totalExpenses)}
+                  </h2>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </div>
       </header>
 
       {/* Content */}
