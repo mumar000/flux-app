@@ -49,8 +49,25 @@ function SettingsIcon({ filled }: { filled: boolean }) {
   );
 }
 
+function StreaksIcon({ filled }: { filled: boolean }) {
+  const c = filled ? "#CCFF00" : "rgba(255,255,255,0.4)";
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M13 2L3 14H12L11 22L21 10H12L13 2Z"
+        fill={filled ? "#CCFF00" : "none"}
+        stroke={c}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const NAV_ITEMS = [
   { label: "Home",     href: "/dashboard", Icon: HomeIcon },
+  { label: "Streaks",  href: "/streaks",   Icon: StreaksIcon },
   { label: "Goals",    href: "/goals",    Icon: GoalsIcon },
   { label: "Settings", href: "/settings", Icon: SettingsIcon },
 ];

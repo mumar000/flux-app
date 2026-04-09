@@ -160,8 +160,17 @@ export function AddIncomeSheet({
               boxShadow: "0 -10px 50px rgba(0,0,0,0.55)",
             }}
           >
-            <div className="flex justify-center pt-3 pb-1">
+            <div className="flex justify-center pt-3 pb-1 relative">
               <div className="w-12 h-1.5 rounded-full bg-white/15" />
+              {/* Close Button */}
+              <button 
+                onClick={handleClose}
+                className="absolute right-4 top-2 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
             </div>
 
             <div className="px-4 pb-6">
