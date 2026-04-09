@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useBanks } from "@/hooks/queries/useBanks";
 
 interface AddIncomeSheetProps {
   open: boolean;
@@ -65,21 +66,17 @@ export function AddIncomeSheet({
   );
   const [showSuccess, setShowSuccess] = useState(false);
 
+  const { data: bankData } = useBanks();
+
   useEffect(() => {
     if (!open) return;
-
-    fetch("/api/banks")
-      .then((res) => res.json())
-      .then((data: unknown) => {
-        if (!Array.isArray(data) || data.length === 0) return;
-        const mapped = data.map((bank) =>
-          mapBankOption(bank as { name?: string; icon_url?: string; color?: string })
-        );
-        setBanks(mapped);
-        setSelectedBank((current) => current ?? mapped[0] ?? null);
-      })
-      .catch(() => null);
-  }, [open]);
+    if (!bankData || bankData.length === 0) return;
+    const mapped = bankData.map((bank: any) =>
+      mapBankOption(bank)
+    );
+    setBanks(mapped);
+    setSelectedBank((current) => current ?? mapped[0] ?? null);
+  }, [open, bankData]);
 
   const resetState = () => {
     setAmount("");

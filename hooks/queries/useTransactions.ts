@@ -15,16 +15,13 @@ export function useTransactions(filters?: {
 
 export function useTransactionStats(month?: string) {
   return useQuery({
-    queryKey: queryKeys.transactions.stats(month),
-    queryFn: async () => {
-      const transactions = await transactionService.getAll(
-        month ? { month } : undefined
-      );
-      return transactionService.getMonthlyStats(
+    queryKey: queryKeys.transactions.list(month ? { month } : undefined),
+    queryFn: () => transactionService.getAll(month ? { month } : undefined),
+    select: (transactions) =>
+      transactionService.getMonthlyStats(
         transactions,
         month ? new Date(`${month}-01`) : undefined
-      );
-    },
-    staleTime: 1000 * 60 * 5,
+      ),
+    staleTime: 1000 * 60 * 2,
   });
 }

@@ -9,6 +9,8 @@ import {
   useTransform,
 } from "framer-motion";
 import { formatPKR } from "@/utils/expenseParser";
+import { useCategories } from "@/hooks/queries/useCategories";
+import { useBanks } from "@/hooks/queries/useBanks";
 
 interface QuickExpenseInputProps {
   onExpenseAdded: (expense: {
@@ -55,40 +57,35 @@ export function QuickExpenseInput({ onExpenseAdded, open: externalOpen, onClose:
   const swipeY = useMotionValue(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch dynamic categories and banks on mount
-  useEffect(() => {
-    fetch("/api/categories")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.length > 0) {
-          const mapped = data.map((d: any) => ({
-            id: d.name,
-            name: d.name,
-            emoji: d.emoji || "📦",
-            color: d.color || "#BDC3C7",
-          }));
-          setCategories(mapped);
-          setCategory(mapped[0]);
-        }
-      })
-      .catch((err) => console.error(err));
+  // Fetch dynamic categories and banks using React Query Hooks
+  const { data: categoryData } = useCategories();
+  const { data: bankData } = useBanks();
 
-    fetch("/api/banks")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.length > 0) {
-          const mapped = data.map((d: any) => ({
-            id: d.name.toLowerCase().replace(/\s+/g, ""),
-            name: d.name,
-            emoji: d.icon_url || "🏦",
-            color: d.color || "#22C55E",
-          }));
-          setBanks(mapped);
-          setBank(mapped[0]);
-        }
-      })
-      .catch((err) => console.error(err));
-  }, []);
+  useEffect(() => {
+    if (categoryData && categoryData.length > 0) {
+      const mapped = categoryData.map((d: any) => ({
+        id: d.name,
+        name: d.name,
+        emoji: d.emoji || "📦",
+        color: d.color || "#BDC3C7",
+      }));
+      setCategories(mapped);
+      if (!amount) setCategory(mapped[0]); // Only reset selection on load if amount untouched
+    }
+  }, [categoryData]);
+
+  useEffect(() => { // Using bankData
+    if (bankData && bankData.length > 0) {
+      const mapped = bankData.map((d: any) => ({
+        id: d.name.toLowerCase().replace(/\s+/g, ""),
+        name: d.name,
+        emoji: d.icon_url || "🏦",
+        color: d.color || "#22C55E",
+      }));
+      setBanks(mapped);
+      if (!amount) setBank(mapped[0]);
+    }
+  }, [bankData]);
 
   // Reset
   const resetFields = () => {

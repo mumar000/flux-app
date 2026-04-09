@@ -10,6 +10,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { comparisonService, type ComparisonInsight } from "@/services/comparison.service";
 import { CouldveBeenInsightCard } from "@/components/mobile/CouldveBeenInsightCard";
 import type { Expense } from "@/services/expense.service";
+import { useCategories } from "@/hooks/queries/useCategories";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,24 +72,21 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
   const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch categories dynamically when modal opens
+  const { data: categoryData } = useCategories();
+
   useEffect(() => {
     if (!open) return;
-    fetch("/api/categories")
-      .then((res) => res.json())
-      .then((data: unknown) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setCategories(
-            data.map((d: any) => ({
-              id: d.id ?? d.name,
-              name: d.name,
-              emoji: d.emoji ?? "📦",
-              color: d.color ?? "#BDC3C7",
-            }))
-          );
-        }
-      })
-      .catch(() => {/* keep defaults */});
-  }, [open]);
+    if (categoryData && categoryData.length > 0) {
+      setCategories(
+        categoryData.map((d: any) => ({
+          id: d.id ?? d.name,
+          name: d.name,
+          emoji: d.emoji ?? "📦",
+          color: d.color ?? "#BDC3C7",
+        }))
+      );
+    }
+  }, [open, categoryData]);
 
   // Reset state when modal closes
   useEffect(() => {
