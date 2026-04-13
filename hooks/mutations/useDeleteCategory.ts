@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/queryKeys";
-import { categoryService, type Category } from "@/services/category.service";
+import { INIT_QUERY_KEY } from "@/hooks/queries/useInitData";
+import { categoryService } from "@/services/category.service";
+import type { InitData } from "@/services/init.service";
 
 export function useDeleteCategory() {
   const queryClient = useQueryClient();
@@ -9,13 +10,12 @@ export function useDeleteCategory() {
     mutationFn: (id: string) => categoryService.delete(id),
 
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.categories.all });
+      await queryClient.cancelQueries({ queryKey: INIT_QUERY_KEY });
 
-      const previous = queryClient.getQueryData<Category[]>(queryKeys.categories.list());
+      const previous = queryClient.getQueryData<InitData>(INIT_QUERY_KEY);
 
-      queryClient.setQueryData<Category[]>(
-        queryKeys.categories.list(),
-        (old = []) => old.filter((c) => c.id !== id)
+      queryClient.setQueryData<InitData>(INIT_QUERY_KEY, (old) =>
+        old ? { ...old, categories: old.categories.filter((c) => c.id !== id) } : old
       );
 
       return { previous };
@@ -23,12 +23,12 @@ export function useDeleteCategory() {
 
     onError: (_err, _id, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(queryKeys.categories.list(), context.previous);
+        queryClient.setQueryData(INIT_QUERY_KEY, context.previous);
       }
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
+      queryClient.invalidateQueries({ queryKey: INIT_QUERY_KEY });
     },
   });
 }
