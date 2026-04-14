@@ -32,6 +32,7 @@ export async function GET() {
         id: _id.toString(),
         user_id: rest.userId,
         ...rest,
+        balance: rest.balance ?? 0,
       })),
     });
   } catch (error) {

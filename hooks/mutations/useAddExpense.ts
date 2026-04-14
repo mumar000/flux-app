@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
+import { INIT_QUERY_KEY } from "@/hooks/queries/useInitData";
 import { expenseService, type Expense, type CreateExpenseInput } from "@/services/expense.service";
 
 export function useAddExpense() {
@@ -40,6 +41,8 @@ export function useAddExpense() {
 
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.transactions.all });
+      queryClient.invalidateQueries({ queryKey: INIT_QUERY_KEY });
     },
   });
 }

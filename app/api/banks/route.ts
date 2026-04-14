@@ -4,7 +4,26 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb/mongoose";
 import { Bank } from "@/lib/mongodb/models";
 
-export async function GET(req: Request) {
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+function formatBankDoc(doc: Record<string, unknown>) {
+  const formatted = { ...doc };
+  if (formatted._id) {
+    formatted.id = (formatted._id as { toString(): string }).toString();
+    delete formatted._id;
+  }
+  if (formatted.userId) {
+    formatted.user_id = formatted.userId;
+    delete formatted.userId;
+  }
+  formatted.balance = Number(formatted.balance ?? 0);
+  delete formatted.__v;
+  return formatted;
+}
+
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -20,15 +39,13 @@ export async function GET(req: Request) {
       ]
     }).lean();
 
-    const formattedBanks = banks.map(({ _id, __v, ...rest }) => ({
-        id: _id.toString(),
-        user_id: rest.userId,
-        ...rest,
-    }));
+    const formattedBanks = banks.map((bank) =>
+      formatBankDoc(bank as Record<string, unknown>)
+    );
 
     return NextResponse.json(formattedBanks);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
 
@@ -40,20 +57,29 @@ export async function POST(req: Request) {
     }
 
     const data = await req.json();
+    const name = typeof data.name === "string" ? data.name.trim() : "";
+    const initialBalance = Number(data.initialBalance ?? 0);
+
+    if (!name) {
+      return NextResponse.json({ error: "Bank name is required" }, { status: 400 });
+    }
+    if (!Number.isFinite(initialBalance)) {
+      return NextResponse.json({ error: "Initial balance must be a number" }, { status: 400 });
+    }
+
     await dbConnect();
     
     const newBank = await Bank.create({
-      ...data,
+      name,
+      balance: initialBalance,
       userId: session.user.id,
     });
     
-    const doc = newBank.toObject();
-    doc.id = doc._id.toString();
-    doc.user_id = doc.userId;
+    const doc = formatBankDoc(newBank.toObject() as Record<string, unknown>);
     
     return NextResponse.json(doc, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
 
@@ -83,7 +109,7 @@ export async function DELETE(req: Request) {
         }
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
     }
 }

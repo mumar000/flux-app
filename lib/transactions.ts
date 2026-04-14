@@ -109,25 +109,36 @@ export function transactionToExpenseLike(
 
 export async function getUnifiedTransactions(
   userId: string,
-  filters?: { month?: string; direction?: "income" | "expense" }
+  filters?: {
+    month?: string;
+    startDate?: string;
+    endDate?: string;
+    direction?: "income" | "expense";
+  }
 ): Promise<TransactionLike[]> {
   const transactionQuery: Record<string, unknown> = { userId };
   const expenseQuery: Record<string, unknown> = { userId };
 
   if (filters?.direction) {
     transactionQuery.direction = filters.direction;
-    if (filters.direction !== "expense") {
-      const transactions = await Transaction.find(transactionQuery)
-        .sort({ createdAt: -1 })
-        .lean<TransactionDoc[]>();
-      return transactions.map(formatTransactionDoc).sort(compareNewestFirst);
-    }
   }
 
-  if (filters?.month) {
+  if (filters?.startDate) {
+    const dateQuery: Record<string, string> = { $gte: filters.startDate };
+    if (filters.endDate) dateQuery.$lte = filters.endDate;
+    transactionQuery.date = dateQuery;
+    expenseQuery.date = dateQuery;
+  } else if (filters?.month) {
     const monthRegex = { $regex: `^${filters.month}` };
     transactionQuery.date = monthRegex;
     expenseQuery.date = monthRegex;
+  }
+
+  if (filters?.direction && filters.direction !== "expense") {
+    const transactions = await Transaction.find(transactionQuery)
+      .sort({ createdAt: -1 })
+      .lean<TransactionDoc[]>();
+    return transactions.map(formatTransactionDoc).sort(compareNewestFirst);
   }
 
   const [transactions, legacyExpenses] = await Promise.all([

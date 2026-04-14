@@ -1,6 +1,7 @@
 export interface Bank {
   id: string;
   name: string;
+  balance: number;
 }
 
 const BASE_URL = "/api/banks";
@@ -18,12 +19,17 @@ export const bankService = {
     return handleResponse<Bank[]>(await fetch(BASE_URL));
   },
 
-  async create(name: string): Promise<Bank> {
+  async create(input: string | { name: string; initialBalance?: number }): Promise<Bank> {
+    const payload =
+      typeof input === "string"
+        ? { name: input }
+        : { name: input.name, initialBalance: input.initialBalance ?? 0 };
+
     return handleResponse<Bank>(
       await fetch(BASE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(payload),
       })
     );
   },

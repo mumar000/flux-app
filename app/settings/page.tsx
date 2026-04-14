@@ -10,7 +10,6 @@ import { useDeleteCategory } from "@/hooks/mutations/useDeleteCategory";
 import { useAddBank } from "@/hooks/mutations/useAddBank";
 import { useDeleteBank } from "@/hooks/mutations/useDeleteBank";
 import { ComparisonItemsManager } from "@/components/mobile/ComparisonItemsManager";
-import { BottomNav } from "@/components/mobile/BottomNav";
 
 export default function SettingsPage() {
   const { user, signOut, loading: authLoading } = useAuth();
@@ -26,6 +25,7 @@ export default function SettingsPage() {
   const [newCatName, setNewCatName] = useState("");
   const [newCatEmoji, setNewCatEmoji] = useState("📦");
   const [newBankName, setNewBankName] = useState("");
+  const [newBankBalance, setNewBankBalance] = useState("");
 
   if (!user && !authLoading) return null;
 
@@ -43,7 +43,18 @@ export default function SettingsPage() {
 
   const handleAddBank = () => {
     if (!newBankName.trim()) return;
-    addBank.mutate(newBankName.trim(), { onSuccess: () => setNewBankName("") });
+    addBank.mutate(
+      {
+        name: newBankName.trim(),
+        initialBalance: newBankBalance ? Number(newBankBalance) : 0,
+      },
+      {
+        onSuccess: () => {
+          setNewBankName("");
+          setNewBankBalance("");
+        },
+      }
+    );
   };
 
   return (
@@ -211,7 +222,12 @@ export default function SettingsPage() {
                       >
                         💳
                       </div>
-                      <p className="font-bold text-sm">{bank.name}</p>
+                      <div>
+                        <p className="font-bold text-sm">{bank.name}</p>
+                        <p className={`text-[11px] font-semibold ${Number(bank.balance ?? 0) < 0 ? "text-red-300" : "text-white/30"}`}>
+                          Rs. {Math.round(Number(bank.balance ?? 0)).toLocaleString("en-PK")}
+                        </p>
+                      </div>
                     </div>
                     <motion.button
                       whileTap={{ scale: 0.85 }}
@@ -239,7 +255,7 @@ export default function SettingsPage() {
               className="p-3 sm:p-4 rounded-2xl"
               style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)" }}
             >
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   value={newBankName}
                   onChange={(e) => setNewBankName(e.target.value)}
@@ -247,6 +263,16 @@ export default function SettingsPage() {
                   className="flex-1 min-w-0 px-3 sm:px-4 h-11 sm:h-12 rounded-xl text-sm outline-none focus:ring-1 focus:ring-[#CCFF00] text-white placeholder:text-white/20"
                   style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
                   placeholder="e.g. Meezan, My Stash..."
+                />
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={newBankBalance}
+                  onChange={(e) => setNewBankBalance(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddBank()}
+                  className="w-full sm:w-36 min-w-0 px-3 sm:px-4 h-11 sm:h-12 rounded-xl text-sm outline-none focus:ring-1 focus:ring-[#CCFF00] text-white placeholder:text-white/20"
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  placeholder="Balance"
                 />
                 <motion.button
                   whileTap={{ scale: 0.92 }}

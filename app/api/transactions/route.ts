@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb/mongoose";
-import { Expense, Transaction } from "@/lib/mongodb/models";
+import { Bank, Expense, Transaction } from "@/lib/mongodb/models";
 import { formatTransactionDoc, getUnifiedTransactions } from "@/lib/transactions";
 
 function formatDoc(doc: Record<string, unknown>) {
@@ -36,6 +36,8 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
     const direction = searchParams.get("direction") as
       | "income"
       | "expense"
@@ -45,6 +47,8 @@ export async function GET(req: Request) {
 
     const docs = await getUnifiedTransactions(session.user.id, {
       month: month ?? undefined,
+      startDate: startDate ?? undefined,
+      endDate: endDate ?? undefined,
       direction: direction ?? undefined,
     });
 
@@ -116,6 +120,12 @@ export async function POST(req: Request) {
       relatedGoalId: body.relatedGoalId ?? null,
     });
 
+    const delta = direction === "income" ? amount : -amount;
+    await Bank.findOneAndUpdate(
+      { userId: session.user.id, name: bank_account.trim() },
+      { $inc: { balance: delta } }
+    );
+
     return NextResponse.json(
       formatDoc(formatTransactionDoc(doc as typeof doc & { _id: { toString(): string } }) as unknown as Record<string, unknown>),
       { status: 201 }
@@ -151,6 +161,14 @@ export async function DELETE(req: Request) {
     });
 
     if (deletedTransaction) {
+      const delta =
+        deletedTransaction.direction === "income"
+          ? -deletedTransaction.amount
+          : deletedTransaction.amount;
+      await Bank.findOneAndUpdate(
+        { userId: session.user.id, name: deletedTransaction.bank_account },
+        { $inc: { balance: delta } }
+      );
       return NextResponse.json({ success: true });
     }
 
@@ -165,6 +183,11 @@ export async function DELETE(req: Request) {
         { status: 404 }
       );
     }
+
+    await Bank.findOneAndUpdate(
+      { userId: session.user.id, name: deletedExpense.bank_account },
+      { $inc: { balance: deletedExpense.amount } }
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

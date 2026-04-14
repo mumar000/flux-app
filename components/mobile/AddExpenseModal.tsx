@@ -11,6 +11,10 @@ import { comparisonService, type ComparisonInsight } from "@/services/comparison
 import { CouldveBeenInsightCard } from "@/components/mobile/CouldveBeenInsightCard";
 import type { Expense } from "@/services/expense.service";
 import { useCategories } from "@/hooks/queries/useCategories";
+import { useBanks } from "@/hooks/queries/useBanks";
+import { formatPKR } from "@/utils/expenseParser";
+import type { Bank } from "@/services/bank.service";
+import type { Category as StoredCategory } from "@/services/category.service";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -59,11 +63,15 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
   const [amount, setAmount] = useState("");
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
   const [description, setDescription] = useState("");
   const [shake, setShake] = useState(false);
 
   // Insight state
   const [loggedAmount, setLoggedAmount] = useState(0);
+  const [loggedBankName, setLoggedBankName] = useState("");
+  const [loggedBalanceBefore, setLoggedBalanceBefore] = useState(0);
+  const [loggedBalanceAfter, setLoggedBalanceAfter] = useState(0);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insights, setInsights] = useState<ComparisonInsight[]>([]);
   const [hasComparisonItems, setHasComparisonItems] = useState(true);
@@ -73,12 +81,13 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
 
   // Fetch categories dynamically when modal opens
   const { data: categoryData } = useCategories();
+  const { data: bankData = [] } = useBanks();
 
   useEffect(() => {
     if (!open) return;
     if (categoryData && categoryData.length > 0) {
       setCategories(
-        categoryData.map((d: any) => ({
+        categoryData.map((d: StoredCategory) => ({
           id: d.id ?? d.name,
           name: d.name,
           emoji: d.emoji ?? "📦",
@@ -88,13 +97,30 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
     }
   }, [open, categoryData]);
 
+  useEffect(() => {
+    if (!open) return;
+    if (bankData.length === 0) {
+      setSelectedBank(null);
+      return;
+    }
+    setSelectedBank((current) =>
+      current && bankData.some((bank) => bank.id === current.id)
+        ? current
+        : bankData[0]
+    );
+  }, [open, bankData]);
+
   // Reset state when modal closes
   useEffect(() => {
     if (!open) {
       setStep("input");
       setAmount("");
       setSelectedCategory(null);
+      setSelectedBank(null);
       setDescription("");
+      setLoggedBankName("");
+      setLoggedBalanceBefore(0);
+      setLoggedBalanceAfter(0);
       setInsights([]);
       setInsightsLoading(false);
       if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current);
@@ -117,13 +143,16 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
   };
 
   const handleBackspace = () => setAmount((prev) => prev.slice(0, -1));
+  const numericAmount = parseFloat(amount) || 0;
+  const balanceBefore = Number(selectedBank?.balance ?? 0);
+  const balanceAfter = balanceBefore - numericAmount;
+  const balanceWillGoNegative = Boolean(selectedBank && numericAmount > 0 && balanceAfter < 0);
 
   // ---------------------------------------------------------------------------
   // Submit
   // ---------------------------------------------------------------------------
   const handleSubmit = async () => {
-    const numericAmount = parseFloat(amount);
-    if (!numericAmount || !selectedCategory) {
+    if (!numericAmount || !selectedCategory || !selectedBank) {
       setShake(true);
       setTimeout(() => setShake(false), 500);
       return;
@@ -145,13 +174,16 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
       {
         amount: numericAmount,
         description: description.trim() || selectedCategory.name,
-        bankAccount: "Cash",
+        bankAccount: selectedBank.name,
         category: selectedCategory.name,
         rawInput: description.trim() || `${numericAmount} ${selectedCategory.name}`,
       },
       {
         onSuccess: async () => {
           setLoggedAmount(numericAmount);
+          setLoggedBankName(selectedBank.name);
+          setLoggedBalanceBefore(balanceBefore);
+          setLoggedBalanceAfter(balanceAfter);
           setStep("insights");
           setInsightsLoading(true);
 
@@ -325,6 +357,63 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
                     </motion.button>
                   </div>
 
+                  {/* Bank picker */}
+                  <div className="mb-5">
+                    <div className="mb-2 text-white/40 text-[11px] font-bold uppercase tracking-widest">
+                      Pay From
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-3 no-scrollbar">
+                      {bankData.map((bank) => {
+                        const isSelected = selectedBank?.id === bank.id;
+                        return (
+                          <motion.button
+                            key={bank.id}
+                            whileTap={{ scale: 0.92 }}
+                            onClick={() => setSelectedBank(bank)}
+                            className="flex-shrink-0 rounded-full border px-4 py-2 text-xs font-extrabold"
+                            style={{
+                              color: isSelected ? "#CCFF00" : "rgba(255,255,255,0.45)",
+                              background: isSelected ? "rgba(204,255,0,0.10)" : "rgba(255,255,255,0.05)",
+                              borderColor: isSelected ? "rgba(204,255,0,0.40)" : "rgba(255,255,255,0.08)",
+                              boxShadow: isSelected ? "0 0 12px rgba(204,255,0,0.15)" : "none",
+                            }}
+                          >
+                            {bank.name}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+
+                    {bankData.length === 0 && (
+                      <p className="text-xs font-semibold text-[#FF8B8B]">
+                        Add a bank account in Settings before logging an expense.
+                      </p>
+                    )}
+
+                    <AnimatePresence>
+                      {numericAmount > 0 && selectedBank && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          className="text-xs font-semibold"
+                          style={{ color: balanceWillGoNegative ? "#FF8B8B" : "rgba(255,255,255,0.40)" }}
+                        >
+                          <span className="text-white/50">{selectedBank.name}</span>{" "}
+                          <span className="text-white/60">{formatPKR(balanceBefore)}</span>{" "}
+                          <span className="text-white/20">→</span>{" "}
+                          <span style={{ color: balanceWillGoNegative ? "#FF8B8B" : "rgba(255,255,255,0.80)" }}>
+                            {formatPKR(balanceAfter)}
+                          </span>{" "}
+                          <span>after this expense</span>
+                          {balanceWillGoNegative && (
+                            <span className="ml-2 font-extrabold">⚠ Balance will go negative</span>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
                   {/* Note field */}
                   <input
                     type="text"
@@ -338,11 +427,11 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
                   {/* Submit */}
                   <motion.button
                     onClick={handleSubmit}
-                    disabled={!amount || !selectedCategory || addExpense.isPending}
+                    disabled={!amount || !selectedCategory || !selectedBank || addExpense.isPending}
                     whileTap={{ scale: 0.97 }}
                     className={clsx(
                       "w-full py-5 rounded-2xl font-extrabold text-base uppercase tracking-wider transition-all",
-                      !amount || !selectedCategory
+                      !amount || !selectedCategory || !selectedBank
                         ? "bg-white/8 text-white/20 cursor-not-allowed"
                         : "bg-[#CCFF00] text-black shadow-[0_0_28px_rgba(204,255,0,0.25)]"
                     )}
@@ -403,6 +492,21 @@ export function AddExpenseModal({ open, onClose }: AddExpenseModalProps) {
                     <p className="text-white/40 text-sm font-medium mt-1">
                       PKR {Math.round(loggedAmount).toLocaleString("en-PK")} added
                     </p>
+                    {loggedBankName && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.15 }}
+                        className="mt-4 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/45"
+                      >
+                        <span className="text-white/70">{loggedBankName}</span>{" "}
+                        <span>{formatPKR(loggedBalanceBefore)}</span>{" "}
+                        <span className="text-white/20">→</span>{" "}
+                        <span className={loggedBalanceAfter < 0 ? "text-[#FF8B8B]" : "text-white/80"}>
+                          {formatPKR(loggedBalanceAfter)}
+                        </span>
+                      </motion.div>
+                    )}
                   </motion.div>
 
                   {/* Insight card */}

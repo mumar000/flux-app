@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb/mongoose";
-import { Expense, Transaction } from "@/lib/mongodb/models";
+import { Bank, Expense, Transaction } from "@/lib/mongodb/models";
 import { getUnifiedExpenses, transactionToExpenseLike } from "@/lib/transactions";
 
 function getErrorMessage(error: unknown) {
@@ -53,6 +53,11 @@ export async function POST(req: Request) {
       receiptId: data.receiptId ?? null,
     });
 
+    await Bank.findOneAndUpdate(
+      { userId: session.user.id, name: newTransaction.bank_account },
+      { $inc: { balance: -newTransaction.amount } }
+    );
+
     const expenseLike = transactionToExpenseLike({
       id: newTransaction._id.toString(),
       direction: "expense",
@@ -101,6 +106,10 @@ export async function DELETE(req: Request) {
         });
 
         if (deletedTransaction) {
+            await Bank.findOneAndUpdate(
+                { userId: session.user.id, name: deletedTransaction.bank_account },
+                { $inc: { balance: deletedTransaction.amount } }
+            );
             return NextResponse.json({ success: true });
         }
 
@@ -109,6 +118,11 @@ export async function DELETE(req: Request) {
         if (!deleted) {
             return NextResponse.json({ error: "Not found or not authorized" }, { status: 404 });
         }
+
+        await Bank.findOneAndUpdate(
+            { userId: session.user.id, name: deleted.bank_account },
+            { $inc: { balance: deleted.amount } }
+        );
 
         return NextResponse.json({ success: true });
     } catch (error: unknown) {

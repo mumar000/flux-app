@@ -56,6 +56,7 @@ export interface IBank extends Document {
   _id: mongoose.Types.ObjectId;
   userId: string;
   name: string;
+  balance: number;
   createdAt: Date;
 }
 
@@ -63,6 +64,7 @@ const BankSchema = new Schema<IBank>(
   {
     userId: { type: String, required: true },
     name: { type: String, required: true },
+    balance: { type: Number, default: 0 },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

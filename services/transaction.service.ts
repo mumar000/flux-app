@@ -1,3 +1,5 @@
+import type { TransactionFilters } from "@/types/period";
+
 export interface Transaction {
   id: string;
   direction: "income" | "expense";
@@ -48,12 +50,11 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 export const transactionService = {
-  async getAll(filters?: {
-    month?: string;
-    direction?: "income" | "expense";
-  }): Promise<Transaction[]> {
+  async getAll(filters?: TransactionFilters): Promise<Transaction[]> {
     const params = new URLSearchParams();
     if (filters?.month) params.set("month", filters.month);
+    if (filters?.startDate) params.set("startDate", filters.startDate);
+    if (filters?.endDate) params.set("endDate", filters.endDate);
     if (filters?.direction) params.set("direction", filters.direction);
 
     const url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
@@ -86,6 +87,33 @@ export const transactionService = {
     );
   },
 
+  getStats(transactions: Transaction[]): TransactionStats {
+    const incomeItems = transactions.filter((t) => t.direction === "income");
+    const expenseItems = transactions.filter((t) => t.direction === "expense");
+
+    const totalIncome = incomeItems.reduce((s, t) => s + Number(t.amount), 0);
+    const totalExpenses = expenseItems.reduce((s, t) => s + Number(t.amount), 0);
+
+    const byCategory: Record<string, number> = {};
+    const byBank: Record<string, number> = {};
+
+    transactions.forEach((t) => {
+      const signedAmount =
+        t.direction === "income" ? Number(t.amount) : -Number(t.amount);
+      byCategory[t.category] = (byCategory[t.category] ?? 0) + signedAmount;
+      byBank[t.bank_account] = (byBank[t.bank_account] ?? 0) + signedAmount;
+    });
+
+    return {
+      totalIncome,
+      totalExpenses,
+      netFlow: totalIncome - totalExpenses,
+      byCategory,
+      byBank,
+      transactions,
+    };
+  },
+
   getMonthlyStats(transactions: Transaction[], month?: Date): TransactionStats {
     const target = month ?? new Date();
     const start = new Date(target.getFullYear(), target.getMonth(), 1);
@@ -99,34 +127,11 @@ export const transactionService = {
       999
     );
 
-    const monthly = transactions.filter((t) => {
-      const d = new Date(t.created_at ?? t.date ?? "");
-      return d >= start && d <= end;
-    });
-
-    const incomeItems = monthly.filter((t) => t.direction === "income");
-    const expenseItems = monthly.filter((t) => t.direction === "expense");
-
-    const totalIncome = incomeItems.reduce((s, t) => s + Number(t.amount), 0);
-    const totalExpenses = expenseItems.reduce((s, t) => s + Number(t.amount), 0);
-
-    const byCategory: Record<string, number> = {};
-    const byBank: Record<string, number> = {};
-
-    monthly.forEach((t) => {
-      const signedAmount =
-        t.direction === "income" ? Number(t.amount) : -Number(t.amount);
-      byCategory[t.category] = (byCategory[t.category] ?? 0) + signedAmount;
-      byBank[t.bank_account] = (byBank[t.bank_account] ?? 0) + signedAmount;
-    });
-
-    return {
-      totalIncome,
-      totalExpenses,
-      netFlow: totalIncome - totalExpenses,
-      byCategory,
-      byBank,
-      transactions: monthly,
-    };
+    return this.getStats(
+      transactions.filter((t) => {
+        const d = new Date(t.date ?? t.created_at ?? "");
+        return d >= start && d <= end;
+      })
+    );
   },
 };

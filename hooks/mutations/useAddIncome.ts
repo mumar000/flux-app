@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
+import { INIT_QUERY_KEY } from "@/hooks/queries/useInitData";
 import {
   transactionService,
   type Transaction,
@@ -57,6 +58,7 @@ export function useAddIncome() {
 
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transactions.all });
+      queryClient.invalidateQueries({ queryKey: INIT_QUERY_KEY });
     },
   });
 }

@@ -7,15 +7,20 @@ export function useAddBank() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (name: string) => bankService.create(name),
+    mutationFn: (input: string | { name: string; initialBalance?: number }) =>
+      bankService.create(input),
 
-    onMutate: async (name) => {
+    onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: INIT_QUERY_KEY });
 
       const previous = queryClient.getQueryData<InitData>(INIT_QUERY_KEY);
+      const name = typeof input === "string" ? input : input.name;
+      const balance = typeof input === "string" ? 0 : input.initialBalance ?? 0;
 
       queryClient.setQueryData<InitData>(INIT_QUERY_KEY, (old) =>
-        old ? { ...old, banks: [...old.banks, { id: `temp-${Date.now()}`, name }] } : old
+        old
+          ? { ...old, banks: [...old.banks, { id: `temp-${Date.now()}`, name, balance }] }
+          : old
       );
 
       return { previous };

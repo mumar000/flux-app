@@ -5,9 +5,14 @@ import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "
 import { useAuth } from "@/hooks/useAuth";
 import { useTransactions, useTransactionStats } from "@/hooks/queries/useTransactions";
 import { useDeleteTransaction } from "@/hooks/mutations/useDeleteTransaction";
+import { useBanks } from "@/hooks/queries/useBanks";
+import { usePeriodFilter } from "@/hooks/usePeriodFilter";
+import type { Period } from "@/types/period";
 import { type Transaction } from "@/services/transaction.service";
 import { FinanceAnalyticsChart } from "@/components/mobile/FinanceAnalyticsChart";
 import { DailyRizqCard } from "@/components/mobile/DailyRizqCard";
+import { PeriodSelector } from "@/components/mobile/PeriodSelector";
+import { BankCarousel } from "@/components/mobile/BankCarousel";
 import { formatPKR, CATEGORY_EMOJIS, CATEGORY_COLORS, INCOME_EMOJIS, INCOME_COLORS } from "@/utils/expenseParser";
 
 
@@ -105,23 +110,53 @@ function SwipeableTransactionRow({ transaction, index, onDelete, formatDate }: S
   );
 }
 
+function DeltaPill({
+  current,
+  previous,
+  label,
+}: {
+  current: number;
+  previous: number;
+  label: string;
+}) {
+  if (previous <= 0 && current <= 0) return null;
+
+  const delta = previous > 0 ? ((current - previous) / previous) * 100 : 100;
+  const isPositive = delta >= 0;
+
+  return (
+    <div
+      className="mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-extrabold"
+      style={{
+        color: isPositive ? "#86EFAC" : "#FF8B8B",
+        background: isPositive ? "rgba(134,239,172,0.10)" : "rgba(255,139,139,0.10)",
+      }}
+    >
+      <span>{isPositive ? "▲" : "▼"}</span>
+      <span>{Math.abs(Math.round(delta))}% vs {label}</span>
+    </div>
+  );
+}
+
 export default function BudgetPage() {
   const { user, loading: authLoading } = useAuth();
-  const currentMonthKey = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, []);
+  const [activePeriod, setActivePeriod] = useState<Period>({ type: "this_month" });
+  const periodMeta = usePeriodFilter(activePeriod);
   const { data: transactions = [], isLoading: transactionsLoading, refetch } = useTransactions({
-    month: currentMonthKey,
+    ...periodMeta.filters,
   });
-  const { data: transactionStats } = useTransactionStats(currentMonthKey);
+  const { data: transactionStats } = useTransactionStats(periodMeta.filters);
+  const { data: priorStats } = useTransactionStats(periodMeta.priorFilters);
+  const { data: banks = [] } = useBanks();
   const deleteTransaction = useDeleteTransaction();
 
   // Session is pre-fetched server-side in layout, so status is "authenticated"
   // on first render. isLoading only waits for the expenses query.
   const isLoading = transactionsLoading;
 
-  const [showAll, setShowAll] = useState(false);
+  const periodKey = JSON.stringify(activePeriod);
+  const [expandedPeriodKey, setExpandedPeriodKey] = useState<string | null>(null);
+  const showAll = periodMeta.showAllByDefault || expandedPeriodKey === periodKey;
 
   const expenseBreakdown = useMemo(() => {
     const expensesOnly = transactions.filter((t) => t.direction === "expense");
@@ -153,15 +188,14 @@ export default function BudgetPage() {
     return new Date(s).toLocaleDateString("en-PK", { month: "short", day: "numeric" });
   };
 
-  const currentMonth = new Date().toLocaleDateString("en-PK", { month: "long", year: "numeric" });
-
   if (!user && !authLoading) return null;
 
-  const visibleTransactions = showAll ? transactions : transactions.slice(0, 5);
+  const visibleLimit = periodMeta.pageSize ?? 5;
+  const visibleTransactions = showAll ? transactions : transactions.slice(0, visibleLimit);
   const totalIncome = transactionStats?.totalIncome ?? 0;
   const totalExpenses = transactionStats?.totalExpenses ?? 0;
-  const netFlow = transactionStats?.netFlow ?? 0;
   const byBank = transactionStats?.byBank ?? {};
+  const showDelta = activePeriod.type === "last_month" || activePeriod.type === "ytd";
 
   return (
     <div className="min-h-screen flex flex-col pb-28" style={{ backgroundColor: "#0F0F11" }}>
@@ -171,7 +205,7 @@ export default function BudgetPage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[#8F90A6] text-xs font-extrabold tracking-widest uppercase">Rizqly</p>
-            <h1 className="text-2xl font-extrabold text-white mt-0.5">{currentMonth}</h1>
+            <h1 className="text-2xl font-extrabold text-white mt-0.5">{periodMeta.label}</h1>
           </div>
           <motion.button whileTap={{ scale: 0.9 }} onClick={() => refetch()}
             className="w-10 h-10 rounded-2xl flex items-center justify-center text-lg"
@@ -179,9 +213,12 @@ export default function BudgetPage() {
             🔄
           </motion.button>
         </div>
+      </header>
+
+      <PeriodSelector activePeriod={activePeriod} onChange={setActivePeriod} />
 
         {/* Income and Expense Cards */}
-        <div className="mt-5 grid grid-cols-2 gap-4">
+      <div className="px-6 mt-5 grid grid-cols-2 gap-4">
           {/* Income Card */}
           <motion.div
             initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
@@ -212,6 +249,13 @@ export default function BudgetPage() {
                   <h2 className="text-xl sm:text-2xl font-extrabold text-white break-all">
                     {formatPKR(totalIncome)}
                   </h2>
+                  {showDelta && (
+                    <DeltaPill
+                      current={totalIncome}
+                      previous={priorStats?.totalIncome ?? 0}
+                      label={periodMeta.priorLabel}
+                    />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -247,12 +291,18 @@ export default function BudgetPage() {
                   <h2 className="text-xl sm:text-2xl font-extrabold text-white break-all">
                     {formatPKR(totalExpenses)}
                   </h2>
+                  {showDelta && (
+                    <DeltaPill
+                      current={totalExpenses}
+                      previous={priorStats?.totalExpenses ?? 0}
+                      label={periodMeta.priorLabel}
+                    />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
           </motion.div>
         </div>
-      </header>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 space-y-6">
@@ -293,47 +343,25 @@ export default function BudgetPage() {
           </AnimatePresence>
         </div>
 
-        {/* Bank breakdown */}
-        <AnimatePresence>
-          {!isLoading && Object.keys(byBank).length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-              className="rounded-[24px] p-5"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <h3 className="text-base font-extrabold text-white mb-4">💳 Net by Account</h3>
-              <div className="space-y-3">
-                {Object.entries(byBank).sort(([, a], [, b]) => Math.abs(b) - Math.abs(a)).map(([bank, amount], i) => {
-                  const denominator = Math.max(Math.abs(netFlow), totalIncome, totalExpenses, 1);
-                  const pct = (Math.abs(amount) / denominator) * 100;
-                  return (
-                    <motion.div key={bank} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.08 }}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-white/70 text-sm font-medium">{bank}</span>
-                        <span className={`text-sm font-bold ${amount >= 0 ? "text-[#86EFAC]" : "text-white"}`}>
-                          {amount >= 0 ? "+" : "-"}{formatPKR(Math.abs(amount))}
-                        </span>
-                      </div>
-                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
-                          transition={{ duration: 0.9, delay: i * 0.08 }}
-                          className="h-full rounded-full"
-                          style={{ background: amount >= 0 ? "linear-gradient(90deg, #86EFAC, #22C55E)" : "linear-gradient(90deg, #CCFF00, #99CC00)" }} />
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <div className="-mx-6">
+          <BankCarousel
+            banks={banks}
+            byBank={byBank}
+            flowLabel={periodMeta.flowSuffix}
+            isLoading={isLoading}
+          />
+        </div>
 
         {/* Transactions */}
         <div className="pb-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-extrabold text-white">Recent Transactions</h3>
-            {!isLoading && transactions.length > 5 && (
-              <button onClick={() => setShowAll(!showAll)} className="text-[#CCFF00] text-sm font-bold">
-                {showAll ? "Show Less" : "See All"}
+            <h3 className="text-base font-extrabold text-white">{periodMeta.transactionTitle}</h3>
+            {!isLoading && !periodMeta.showAllByDefault && transactions.length > visibleLimit && (
+              <button
+                onClick={() => setExpandedPeriodKey(showAll ? null : periodKey)}
+                className="text-[#CCFF00] text-sm font-bold"
+              >
+                {showAll ? "Show Less" : activePeriod.type === "ytd" ? "Load More" : "See All"}
               </button>
             )}
           </div>
@@ -367,7 +395,7 @@ export default function BudgetPage() {
             {!isLoading && transactions.length === 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-10">
                 <div className="text-5xl mb-3">🎉</div>
-                <p className="text-white/40 font-medium">No transactions yet this month</p>
+                <p className="text-white/40 font-medium">{periodMeta.emptyCopy}</p>
                 <p className="text-white/20 text-sm mt-1">Tap + to add income or expense</p>
               </motion.div>
             )}

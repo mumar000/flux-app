@@ -1,3 +1,5 @@
+import type { TransactionFilters } from "@/types/period";
+
 export const queryKeys = {
   expenses: {
     all: ["expenses"] as const,
@@ -31,8 +33,8 @@ export const queryKeys = {
   },
   transactions: {
     all: ["transactions"] as const,
-    list: (filters?: { month?: string; direction?: "income" | "expense" }) =>
+    list: (filters?: TransactionFilters) =>
       ["transactions", "list", filters] as const,
-    stats: (month?: string) => ["transactions", "stats", month] as const,
+    stats: (filters?: TransactionFilters) => ["transactions", "stats", filters] as const,
   },
 } as const;
