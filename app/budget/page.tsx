@@ -114,25 +114,28 @@ function DeltaPill({
   current,
   previous,
   label,
+  invert = false,
 }: {
   current: number;
   previous: number;
   label: string;
+  /** When true, a positive delta is bad (used for expenses). */
+  invert?: boolean;
 }) {
   if (previous <= 0 && current <= 0) return null;
 
   const delta = previous > 0 ? ((current - previous) / previous) * 100 : 100;
-  const isPositive = delta >= 0;
+  const isGood = invert ? delta <= 0 : delta >= 0;
 
   return (
     <div
       className="mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-extrabold"
       style={{
-        color: isPositive ? "#86EFAC" : "#FF8B8B",
-        background: isPositive ? "rgba(134,239,172,0.10)" : "rgba(255,139,139,0.10)",
+        color: isGood ? "#86EFAC" : "#FF8B8B",
+        background: isGood ? "rgba(134,239,172,0.10)" : "rgba(255,139,139,0.10)",
       }}
     >
-      <span>{isPositive ? "▲" : "▼"}</span>
+      <span>{delta >= 0 ? "▲" : "▼"}</span>
       <span>{Math.abs(Math.round(delta))}% vs {label}</span>
     </div>
   );
@@ -296,6 +299,7 @@ export default function BudgetPage() {
                       current={totalExpenses}
                       previous={priorStats?.totalExpenses ?? 0}
                       label={periodMeta.priorLabel}
+                      invert
                     />
                   )}
                 </motion.div>

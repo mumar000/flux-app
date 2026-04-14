@@ -13,10 +13,9 @@ export function useTransactions(filters?: TransactionFilters) {
 
 export function useTransactionStats(filters?: TransactionFilters) {
   return useQuery({
-    queryKey: queryKeys.transactions.stats(filters),
+    queryKey: queryKeys.transactions.list(filters),
     queryFn: () => transactionService.getAll(filters),
-    select: (transactions) =>
-      transactionService.getStats(transactions),
+    select: (transactions) => transactionService.getStats(transactions),
     staleTime: 1000 * 60 * 2,
   });
 }
